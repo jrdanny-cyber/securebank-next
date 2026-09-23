@@ -1,0 +1,46 @@
+cat > .gitignore <<'EOF'
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Java
+**/target/
+
+# Frontend
+**/node_modules/
+**/dist/
+**/coverage/
+*.tsbuildinfo
+
+# Python
+**/__pycache__/
+**/.venv/
+**/.pytest_cache/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+crash.log
+
+# Ansible
+*.retry
+vault-password*
+infrastructure/ansible/inventory/**/hosts.yml
+
+# Editor and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+EOF
