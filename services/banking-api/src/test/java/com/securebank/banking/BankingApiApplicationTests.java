@@ -2,6 +2,18 @@ package com.securebank.banking;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.BadJwtException;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.securebank.banking.accounts.AccountQueryRepository;
 import com.securebank.banking.accounts.AccountSummary;
@@ -23,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @Testcontainers
+@AutoConfigureMockMvc
 class BankingApiApplicationTests {
 
     @Container
@@ -166,4 +179,67 @@ class BankingApiApplicationTests {
             "ACTIVE"
     );
   }
+   @Autowired
+MockMvc mockMvc;
+
+@MockitoBean
+JwtDecoder jwtDecoder;
+
+@Test
+void anonymousAccountRequestIsRejected() throws Exception {
+    mockMvc.perform(get("/api/v1/accounts"))
+            .andExpect(status().isUnauthorized());
+}
+
+@Test
+@Transactional
+void accountEndpointReturnsOnlyAuthenticatedCustomersAccounts()
+        throws Exception {
+    AccountSummary aliceAccount = insertTestAccount(
+            "test-alice", "TEST-ALICE-001", "Everyday account");
+
+    AccountSummary bobAccount = insertTestAccount(
+            "test-bob", "TEST-BOB-001", "Savings account");
+
+    mockMvc.perform(get("/api/v1/accounts")
+                    .with(jwt()
+                            .jwt(token -> token.subject("test-alice"))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id")
+                    .value(aliceAccount.id().toString()));
+
+    mockMvc.perform(get("/api/v1/accounts")
+                    .with(jwt()
+                            .jwt(token -> token.subject("test-bob"))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id")
+                    .value(bobAccount.id().toString()));
+}
+
+@Test
+void tokenWithoutAccountsReadScopeIsForbidden() throws Exception {
+    mockMvc.perform(get("/api/v1/accounts")
+                    .with(jwt()
+                            .jwt(token -> token.subject("test-alice"))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_profile"))))
+            .andExpect(status().isForbidden());
+}
+
+@Test
+void rejectedBearerTokenReturnsUnauthorized() throws Exception {
+    when(jwtDecoder.decode("invalid-token"))
+            .thenThrow(new BadJwtException("Invalid test token"));
+
+    mockMvc.perform(get("/api/v1/accounts")
+                    .header("Authorization", "Bearer invalid-token"))
+            .andExpect(status().isUnauthorized());
+}
+
 }
