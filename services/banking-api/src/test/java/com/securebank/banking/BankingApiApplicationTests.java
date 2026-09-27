@@ -176,7 +176,8 @@ class BankingApiApplicationTests {
             accountReference,
             accountName,
             "USD",
-            "ACTIVE"
+            "ACTIVE",
+	    "0.00"
     );
   }
    @Autowired
@@ -390,5 +391,50 @@ private UUID insertJournal(UUID debitAccountId, UUID creditAccountId,
 private String sqlState(DataAccessException failure) {
     return ((java.sql.SQLException) failure.getMostSpecificCause())
             .getSQLState();
+}
+@Test
+@Transactional
+void accountWithoutPostingsHasZeroBalance() throws Exception {
+    insertTestAccount(
+            "zero-balance-user", "ZERO-BALANCE", "Empty account");
+
+    mockMvc.perform(get("/api/v1/accounts")
+                    .with(jwt()
+                            .jwt(token -> token.subject("zero-balance-user"))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].balance").value("0.00"));
+}
+
+@Test
+@Transactional
+void accountBalancesReflectCreditsMinusDebits() throws Exception {
+    AccountSummary source = insertTestAccount(
+            "balance-source", "BALANCE-SOURCE", "Source account");
+
+    AccountSummary destination = insertTestAccount(
+            "balance-destination", "BALANCE-DEST", "Destination account");
+
+    insertJournal(source.id(), destination.id(), "25.50");
+    insertJournal(destination.id(), source.id(), "5.20");
+
+    assertEquals(
+            "-20.30",
+            accountQueries.findByIdentitySubject("balance-source")
+                    .getFirst()
+                    .balance());
+
+    mockMvc.perform(get("/api/v1/accounts")
+                    .with(jwt()
+                            .jwt(token -> token.subject("balance-destination"))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id")
+                    .value(destination.id().toString()))
+            .andExpect(jsonPath("$[0].balance").value("20.30"));
 }
 }

@@ -25,7 +25,18 @@ public class AccountQueryRepository {
                     a.account_reference,
                     a.account_name,
                     a.currency,
-                    a.status
+                    a.status,
+                    COALESCE((
+                        SELECT SUM(
+                            CASE
+                                WHEN e.direction = 'CREDIT' THEN e.amount
+                                ELSE -e.amount
+                            END
+                        )
+                        FROM banking.ledger_entries e
+                        WHERE e.account_id = a.id
+                          AND e.currency = a.currency
+                    ), 0) AS balance
                 FROM banking.accounts a
                 JOIN banking.customers c ON c.id = a.customer_id
                 WHERE c.identity_subject = :identitySubject
@@ -37,7 +48,10 @@ public class AccountQueryRepository {
                         rs.getString("account_reference"),
                         rs.getString("account_name"),
                         rs.getString("currency"),
-                        rs.getString("status")
+                        rs.getString("status"),
+                        rs.getBigDecimal("balance")
+                                .setScale(2)
+                                .toPlainString()
                 ))
                 .list();
     }

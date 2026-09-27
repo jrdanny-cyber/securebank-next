@@ -7,6 +7,7 @@ public record AccountSummary(
         String accountReference,
         String accountName,
         String currency,
-        String status
+        String status,
+	String balance
 ) {
 }

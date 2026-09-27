@@ -7,6 +7,7 @@ type Account = {
   accountName: string
   currency: string
   status: string
+  balance: string
 }
 
 type AccountState =
@@ -22,7 +23,9 @@ function isAccount(value: unknown): value is Account {
     'accountReference' in value && typeof value.accountReference === 'string' &&
     'accountName' in value && typeof value.accountName === 'string' &&
     'currency' in value && typeof value.currency === 'string' &&
-    'status' in value && typeof value.status === 'string'
+    'status' in value && typeof value.status === 'string' &&
+    'balance' in value && typeof value.balance === 'string' &&
+     /^-?\d+\.\d{2}$/.test(value.balance)
   )
 }
 
@@ -128,7 +131,7 @@ function Accounts() {
 
           <div className="balance">
             <span>Balance</span>
-            <strong>Not available yet</strong>
+            <strong>{account.currency} {account.balance}</strong>
           </div>
         </article>
       ))}
