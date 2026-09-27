@@ -1,111 +1,109 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  font-family: Inter, "Segoe UI", sans-serif;
+  color: #172c30;
+  background: #f4f6f3;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; cursor: pointer; }
+a { color: inherit; }
+button:focus-visible, a:focus-visible {
+  outline: 3px solid #cc9a35;
+  outline-offset: 4px;
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
+button {
+  background: #125e50;
+  color: white;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 12px 20px;
+  font-weight: 600;
+}
+button:hover { background: #0c493e; }
+button.secondary { background: white; color: #172c30; border-color: #dce3dc; }
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  padding: 40px 28px;
+  background: #122f2b;
+  color: #fff;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+}
+.brand { font-size: 25px; font-weight: 750; text-decoration: none; }
+.brand span { color: #bfe7ab; }
+.sidebar-caption {
+  margin-top: 64px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #b4c8c0;
+}
+.nav-active {
+  display: block;
+  padding: 15px;
+  background: #24443d;
+  border-radius: 9px;
+  text-decoration: none;
+  font-size: 14px;
+}
+.demo-label { margin-top: auto; padding-top: 48px; }
+.demo-label strong, .demo-label span { display: block; font-size: 12px; }
+.demo-label span { color: #b4c8c0; margin-top: 8px; }
+
+.content { width: 100%; max-width: 1450px; padding: 30px 6%; }
+.topbar { display: flex; justify-content: space-between; align-items: center; }
+.topbar > span { color: #596c67; font-size: 14px; }
+.intro { margin: 65px 0 42px; }
+.eyebrow { color: #386959; font-size: 11px; letter-spacing: 2px; font-weight: 700; }
+h1 { font-size: clamp(30px, 4vw, 46px); letter-spacing: -1.5px; margin: 16px 0; }
+.intro > p:last-child { color: #596c67; line-height: 1.7; }
+
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.section-heading h2 { font-size: 20px; }
+.section-heading > span { color: #596c67; font-size: 12px; }
+.account-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+.account-card, .welcome-card {
+  background: white;
+  border: 1px solid #dde4db;
+  border-radius: 18px;
+  padding: 28px;
+}
+.account-card:first-child { background: #eaf1e3; }
+.card-top { display: flex; justify-content: space-between; align-items: center; }
+.currency { font-weight: 700; font-size: 13px; }
+.status { background: #d9e9d6; color: #214c35; border-radius: 20px; padding: 6px 10px; font-size: 10px; letter-spacing: 1px; }
+.account-card h3 { margin: 35px 0 9px; font-size: 23px; }
+.reference { font-family: monospace; font-size: 14px; color: #596c67; }
+.balance { margin-top: 30px; border-top: 1px solid #dce3d7; padding-top: 20px; }
+.balance span, .balance strong { display: block; }
+.balance span { font-size: 12px; color: #596c67; margin-bottom: 8px; }
+.balance strong { font-size: 17px; font-weight: 500; }
+
+.welcome-card { padding: 40px; max-width: 660px; }
+.welcome-mark { background: #eaf1e3; color: #125e50; border-radius: 14px; padding: 16px; display: inline-block; font-weight: 750; }
+.welcome-card p { color: #596c67; margin-bottom: 25px; line-height: 1.7; }
+.notice { padding: 24px; background: white; border-radius: 12px; }
+.error { border: 1px solid #e5b5ad; color: #803728; }
+.startup { max-width: 650px; margin: 100px auto; padding: 24px; }
+footer { margin-top: 64px; padding-bottom: 24px; color: #596c67; font-size: 12px; }
+
+@media (max-width: 850px) {
+  .sidebar { width: 195px; padding: 30px 18px; }
+  .content { padding: 25px; }
+  .account-grid { grid-template-columns: 1fr; }
 }
 
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+@media (max-width: 600px) {
+  .shell { flex-direction: column; }
+  .sidebar { width: 100%; padding: 20px; }
+  .sidebar-caption, .sidebar nav, .demo-label { display: none; }
+  .intro { margin-top: 40px; }
+  .section-heading > span { display: none; }
 }

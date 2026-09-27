@@ -21,6 +21,19 @@ services:
       timeout: 5s
       retries: 12
       start_period: 15s
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HOSTNAME: http://localhost:8180
+    ports:
+      - "127.0.0.1:8180:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./infrastructure/docker/keycloak:/opt/keycloak/data/import:ro
 
 volumes:
   postgres_data:
+  keycloak_data:

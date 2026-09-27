@@ -1,0 +1,71 @@
+{
+  "realm": "securebank",
+  "enabled": true,
+  "displayName": "SecureBank",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "sslRequired": "none",
+  "clientScopes": [
+    {
+      "name": "accounts:read",
+      "description": "Read the authenticated customer's accounts",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+  {
+      "name": "subject",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-sub-mapper",
+      "consentRequired": false,
+      "config": {
+        "access.token.claim": "true"
+    }
+  },
+  {
+    "name": "securebank-api-audience",
+    "protocol": "openid-connect",
+    "protocolMapper": "oidc-audience-mapper",
+    "consentRequired": false,
+    "config": {
+      "included.custom.audience": "securebank-api",
+      "access.token.claim": "true",
+      "id.token.claim": "false"
+    }
+  }
+]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "securebank-web",
+      "name": "SecureBank Customer Portal",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "defaultClientScopes": [
+        "accounts:read"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      }
+    }
+  ]
+}

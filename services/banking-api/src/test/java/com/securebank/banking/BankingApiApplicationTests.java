@@ -241,5 +241,14 @@ void rejectedBearerTokenReturnsUnauthorized() throws Exception {
                     .header("Authorization", "Bearer invalid-token"))
             .andExpect(status().isUnauthorized());
 }
-
+@Test
+void tokenWithoutSubjectIsRejected() throws Exception {
+    mockMvc.perform(get("/api/v1/accounts")
+                    .with(jwt()
+                            .jwt(token -> token.claims(
+                                    claims -> claims.remove("sub")))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isUnauthorized());
+}
 }

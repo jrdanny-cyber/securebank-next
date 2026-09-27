@@ -1,122 +1,219 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
+import { auth } from './auth'
 
-function App() {
-  const [count, setCount] = useState(0)
+type Account = {
+  id: string
+  accountReference: string
+  accountName: string
+  currency: string
+  status: string
+}
+
+type AccountState =
+  | { kind: 'loading' }
+  | { kind: 'ready'; accounts: Account[] }
+  | { kind: 'error'; message: string }
+
+function isAccount(value: unknown): value is Account {
+  if (typeof value !== 'object' || value === null) return false
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    'id' in value && typeof value.id === 'string' &&
+    'accountReference' in value && typeof value.accountReference === 'string' &&
+    'accountName' in value && typeof value.accountName === 'string' &&
+    'currency' in value && typeof value.currency === 'string' &&
+    'status' in value && typeof value.status === 'string'
   )
 }
 
-export default App
+function Accounts() {
+  const [state, setState] = useState<AccountState>({ kind: 'loading' })
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadAccounts() {
+      try {
+        try {
+          await auth.updateToken(30)
+        } catch {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (controller.signal.aborted) return
+
+        if (!auth.token) {
+          throw new Error('Please sign in again to view your accounts.')
+        }
+
+        const response = await fetch('/api/v1/accounts', {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            Accept: 'application/json',
+          },
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+
+        if (response.status === 401) {
+          throw new Error('Your session could not be verified. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('Your login does not have permission to view accounts.')
+        }
+
+        if (!response.ok) {
+          throw new Error('Accounts are temporarily unavailable. Please try again.')
+        }
+
+        const data: unknown = await response.json()
+
+        if (!Array.isArray(data) || !data.every(isAccount)) {
+          throw new Error('The account service returned an unexpected response.')
+        }
+
+        if (!controller.signal.aborted) {
+          setState({ kind: 'ready', accounts: data })
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setState({
+            kind: 'error',
+            message: error instanceof Error
+              ? error.message
+              : 'Unable to load accounts.',
+          })
+        }
+      }
+    }
+
+    void loadAccounts()
+
+    return () => controller.abort()
+  }, [])
+
+  if (state.kind === 'loading') {
+    return <p className="notice" role="status">Loading your accounts…</p>
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <section className="notice error" role="alert">
+        <p>{state.message}</p>
+        <button onClick={() => window.location.reload()}>Reload</button>
+      </section>
+    )
+  }
+
+  if (state.accounts.length === 0) {
+    return (
+      <p className="notice">
+        No accounts are linked to your customer profile yet.
+      </p>
+    )
+  }
+
+  return (
+    <div className="account-grid">
+      {state.accounts.map(account => (
+        <article className="account-card" key={account.id}>
+          <div className="card-top">
+            <span className="currency">{account.currency}</span>
+            <span className="status">{account.status}</span>
+          </div>
+
+          <h3>{account.accountName}</h3>
+          <p className="reference">{account.accountReference}</p>
+
+          <div className="balance">
+            <span>Balance</span>
+            <strong>Not available yet</strong>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+export default function App() {
+  const [actionError, setActionError] = useState('')
+
+  async function signIn() {
+    try {
+      await auth.login({ redirectUri: window.location.origin + '/' })
+    } catch {
+      setActionError('Unable to start sign-in. Please try again.')
+    }
+  }
+
+  async function signOut() {
+    try {
+      await auth.logout({ redirectUri: window.location.origin + '/' })
+    } catch {
+      setActionError('Unable to complete sign-out. Please try again.')
+    }
+  }
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <a className="brand" href="/">SecureBank<span> / </span></a>
+        <p className="sidebar-caption">CUSTOMER PORTAL</p>
+        <nav aria-label="Main navigation">
+          <a className="nav-active" href="/" aria-current="page">
+            Account overview
+          </a>
+        </nav>
+        <div className="demo-label">
+          <strong>Demo environment</strong>
+          <span>Simulated accounts and funds</span>
+        </div>
+      </aside>
+
+      <main className="content">
+        <header className="topbar">
+          <span>Personal banking</span>
+          {auth.authenticated ? (
+            <button className="secondary" onClick={() => void signOut()}>
+              Sign out
+            </button>
+          ) : (
+            <button onClick={() => void signIn()}>Sign in</button>
+          )}
+        </header>
+
+        {actionError && <p className="notice error" role="alert">{actionError}</p>}
+
+        <section className="intro">
+          <p className="eyebrow">YOUR EVERYDAY BANKING</p>
+          <h1>{auth.authenticated ? 'Your accounts, at a glance.' : 'Welcome to SecureBank.'}</h1>
+          <p>
+            {auth.authenticated
+              ? 'A clear view of the accounts connected to your customer profile.'
+              : 'Sign in to access your personal account overview.'}
+          </p>
+        </section>
+
+        {auth.authenticated ? (
+          <section aria-labelledby="accounts-heading">
+            <div className="section-heading">
+              <h2>My accounts</h2>
+              <span>Account overview</span>
+            </div>
+            <Accounts />
+          </section>
+        ) : (
+          <section className="welcome-card">
+            <div className="welcome-mark" aria-hidden="true">SB</div>
+            <h2>Your banking starts here.</h2>
+            <p>Use your customer login to view your accounts.</p>
+            <button onClick={() => void signIn()}>Sign in to your account →</button>
+          </section>
+        )}
+
+        <footer>SecureBank · Learning platform · No real money</footer>
+      </main>
+    </div>
+  )
+}
