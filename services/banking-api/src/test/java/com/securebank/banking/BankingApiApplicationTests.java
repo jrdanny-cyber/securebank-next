@@ -437,4 +437,47 @@ void accountBalancesReflectCreditsMinusDebits() throws Exception {
                     .value(destination.id().toString()))
             .andExpect(jsonPath("$[0].balance").value("20.30"));
 }
+@Test
+@Transactional
+void internalAccountsAreExcludedFromCustomerAccountResults() {
+    AccountSummary customerAccount = insertTestAccount(
+            "internal-isolation-user",
+            "CUSTOMER-ISOLATION",
+            "Customer account");
+
+    jdbc.update("""
+            INSERT INTO banking.accounts (
+                id, customer_id, account_reference,
+                account_name, currency, account_kind
+            )
+            VALUES (?, NULL, ?, ?, 'USD', 'INTERNAL_ASSET')
+            """,
+            UUID.randomUUID(),
+            "INTERNAL-ISOLATION",
+            "Internal cash asset");
+
+    assertEquals(
+            List.of(customerAccount),
+            accountQueries.findByIdentitySubject("internal-isolation-user"));
+}
+
+@Test
+@Transactional
+void customerAccountMustHaveAnOwner() {
+    DataAccessException failure = assertThrows(
+            DataAccessException.class,
+            () -> jdbc.update("""
+                    INSERT INTO banking.accounts (
+                        id, customer_id, account_reference,
+                        account_name, currency, account_kind
+                    )
+                    VALUES (
+                        ?, NULL, 'OWNERLESS-TEST',
+                        'Invalid account', 'USD', 'CUSTOMER_LIABILITY'
+                    )
+                    """,
+                    UUID.randomUUID()));
+
+    assertEquals("23514", sqlState(failure));
+}
 }
