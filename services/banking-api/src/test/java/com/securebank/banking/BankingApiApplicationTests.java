@@ -8,7 +8,7 @@ import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
+import java.math.BigDecimal;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -250,5 +250,145 @@ void tokenWithoutSubjectIsRejected() throws Exception {
                             .authorities(new SimpleGrantedAuthority(
                                     "SCOPE_accounts:read"))))
             .andExpect(status().isUnauthorized());
+}
+@Test
+@Transactional
+void journalProducesEqualDebitAndCreditEntries() {
+    AccountSummary source = insertTestAccount(
+            "ledger-source", "LEDGER-SOURCE", "Source account");
+
+    AccountSummary destination = insertTestAccount(
+            "ledger-destination", "LEDGER-DESTINATION", "Destination account");
+
+    UUID transactionId = insertJournal(
+            source.id(), destination.id(), "25.50");
+
+    assertEquals(
+            2L,
+            jdbc.queryForObject("""
+                    SELECT count(*)
+                    FROM banking.ledger_entries
+                    WHERE transaction_id = ?
+                    """, Long.class, transactionId));
+
+    BigDecimal debit = jdbc.queryForObject("""
+            SELECT amount
+            FROM banking.ledger_entries
+            WHERE transaction_id = ? AND direction = 'DEBIT'
+            """, BigDecimal.class, transactionId);
+
+    BigDecimal credit = jdbc.queryForObject("""
+            SELECT amount
+            FROM banking.ledger_entries
+            WHERE transaction_id = ? AND direction = 'CREDIT'
+            """, BigDecimal.class, transactionId);
+
+    assertEquals(0, new BigDecimal("25.50").compareTo(debit));
+    assertEquals(0, debit.compareTo(credit));
+}
+
+@Test
+@Transactional
+void databaseRejectsFractionalCents() {
+    AccountSummary source = insertTestAccount(
+            "precision-source", "PRECISION-SOURCE", "Source account");
+
+    AccountSummary destination = insertTestAccount(
+            "precision-destination", "PRECISION-DEST", "Destination account");
+
+    DataAccessException failure = assertThrows(
+            DataAccessException.class,
+            () -> insertJournal(source.id(), destination.id(), "25.501"));
+
+    assertEquals("23514", sqlState(failure));
+}
+
+@Test
+@Transactional
+void databaseRejectsAccountCurrencyMismatch() {
+    AccountSummary source = insertTestAccount(
+            "currency-source", "CURRENCY-SOURCE", "Source account");
+
+    AccountSummary destination = insertTestAccount(
+            "currency-destination", "CURRENCY-DEST", "Destination account");
+
+    jdbc.update(
+            "UPDATE banking.accounts SET currency = 'EUR' WHERE id = ?",
+            destination.id());
+
+    DataAccessException failure = assertThrows(
+            DataAccessException.class,
+            () -> insertJournal(source.id(), destination.id(), "25.50"));
+
+    assertEquals("23503", sqlState(failure));
+}
+
+@Test
+@Transactional
+void applicationCannotUpdatePostedJournal() {
+    AccountSummary source = insertTestAccount(
+            "update-source", "UPDATE-SOURCE", "Source account");
+
+    AccountSummary destination = insertTestAccount(
+            "update-destination", "UPDATE-DEST", "Destination account");
+
+    UUID transactionId = insertJournal(
+            source.id(), destination.id(), "25.50");
+
+    DataAccessException failure = assertThrows(
+            DataAccessException.class,
+            () -> jdbc.update("""
+                    UPDATE banking.journal_transactions
+                    SET amount = 99.00
+                    WHERE id = ?
+                    """, transactionId));
+
+    assertEquals("42501", sqlState(failure));
+}
+
+@Test
+@Transactional
+void applicationCannotDeletePostedJournal() {
+    AccountSummary source = insertTestAccount(
+            "delete-source", "DELETE-SOURCE", "Source account");
+
+    AccountSummary destination = insertTestAccount(
+            "delete-destination", "DELETE-DEST", "Destination account");
+
+    UUID transactionId = insertJournal(
+            source.id(), destination.id(), "25.50");
+
+    DataAccessException failure = assertThrows(
+            DataAccessException.class,
+            () -> jdbc.update("""
+                    DELETE FROM banking.journal_transactions
+                    WHERE id = ?
+                    """, transactionId));
+
+    assertEquals("42501", sqlState(failure));
+}
+
+private UUID insertJournal(UUID debitAccountId, UUID creditAccountId,
+                           String amount) {
+    UUID transactionId = UUID.randomUUID();
+
+    jdbc.update("""
+            INSERT INTO banking.journal_transactions (
+                id, debit_account_id, credit_account_id,
+                amount, currency, description
+            )
+            VALUES (?, ?, ?, ?, 'USD', 'Integration test posting')
+            """,
+            transactionId,
+            debitAccountId,
+            creditAccountId,
+            new BigDecimal(amount));
+
+    return transactionId;
+}
+
+private String sqlState(DataAccessException failure) {
+    return ((java.sql.SQLException) failure.getMostSpecificCause())
+            .getSQLState();
 }
 }
