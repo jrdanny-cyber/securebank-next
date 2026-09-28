@@ -29,7 +29,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
-
+import com.securebank.banking.ledger.PostingAmount;
+import com.securebank.banking.transfers.TransferService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -574,5 +575,167 @@ private void insertTransferRequest(
             customerId,
             idempotencyKey,
             transactionId);
+}
+@Autowired
+TransferService transfers;
+
+@Test
+@Transactional
+void transferMovesMoneyBetweenOwnedAccounts() {
+    TransferFixture fixture = createTransferFixture();
+
+    TransferService.Result result = transferFor(
+            fixture, UUID.randomUUID(), "30.00");
+
+    assertEquals(false, result.replayed());
+    assertEquals("70.00", balanceOf(fixture, fixture.source()));
+    assertEquals("30.00", balanceOf(fixture, fixture.destination()));
+
+    assertEquals(
+            1L,
+            jdbc.queryForObject("""
+                    SELECT count(*)
+                    FROM banking.transfer_requests
+                    WHERE transaction_id = ?
+                    """, Long.class, result.transactionId()));
+}
+
+@Test
+@Transactional
+void retryReturnsOriginalTransferWithoutMovingMoneyAgain() {
+    TransferFixture fixture = createTransferFixture();
+    UUID key = UUID.randomUUID();
+
+    TransferService.Result first = transferFor(fixture, key, "30.00");
+    TransferService.Result retry = transferFor(fixture, key, "30.00");
+
+    assertEquals(first.transactionId(), retry.transactionId());
+    assertEquals(true, retry.replayed());
+    assertEquals("70.00", balanceOf(fixture, fixture.source()));
+    assertEquals("30.00", balanceOf(fixture, fixture.destination()));
+}
+
+@Test
+@Transactional
+void changedAmountWithSameRequestKeyIsRejected() {
+    TransferFixture fixture = createTransferFixture();
+    UUID key = UUID.randomUUID();
+
+    transferFor(fixture, key, "30.00");
+
+    TransferService.Rejected failure = assertThrows(
+            TransferService.Rejected.class,
+            () -> transferFor(fixture, key, "40.00"));
+
+    assertEquals("IDEMPOTENCY_CONFLICT", failure.code());
+    assertEquals("70.00", balanceOf(fixture, fixture.source()));
+    assertEquals("30.00", balanceOf(fixture, fixture.destination()));
+}
+
+@Test
+@Transactional
+void insufficientFundsLeaveBalancesUnchanged() {
+    TransferFixture fixture = createTransferFixture();
+
+    TransferService.Rejected failure = assertThrows(
+            TransferService.Rejected.class,
+            () -> transferFor(fixture, UUID.randomUUID(), "100.01"));
+
+    assertEquals("INSUFFICIENT_FUNDS", failure.code());
+    assertEquals("100.00", balanceOf(fixture, fixture.source()));
+    assertEquals("0.00", balanceOf(fixture, fixture.destination()));
+}
+
+@Test
+@Transactional
+void customerCannotTransferFromAnotherCustomersAccounts() {
+    TransferFixture fixture = createTransferFixture();
+
+    String outsiderSubject = "outsider-" + UUID.randomUUID();
+    insertTestAccount(
+            outsiderSubject,
+            "OUT-" + UUID.randomUUID().toString().substring(0, 20),
+            "Other customer account");
+
+    TransferService.Rejected failure = assertThrows(
+            TransferService.Rejected.class,
+            () -> transfers.transfer(
+                    outsiderSubject,
+                    UUID.randomUUID(),
+                    fixture.source(),
+                    fixture.destination(),
+                    new PostingAmount(new BigDecimal("10.00"), "USD"),
+                    "Unauthorized transfer"));
+
+    assertEquals("ACCOUNT_UNAVAILABLE", failure.code());
+    assertEquals("100.00", balanceOf(fixture, fixture.source()));
+    assertEquals("0.00", balanceOf(fixture, fixture.destination()));
+}
+
+private TransferService.Result transferFor(
+        TransferFixture fixture, UUID key, String amount
+) {
+    return transfers.transfer(
+            fixture.subject(),
+            key,
+            fixture.source(),
+            fixture.destination(),
+            new PostingAmount(new BigDecimal(amount), "USD"),
+            "Move money to savings");
+}
+
+private String balanceOf(TransferFixture fixture, UUID accountId) {
+    return accountQueries.findByIdentitySubject(fixture.subject())
+            .stream()
+            .filter(account -> account.id().equals(accountId))
+            .findFirst()
+            .orElseThrow()
+            .balance();
+}
+
+private TransferFixture createTransferFixture() {
+    String suffix = UUID.randomUUID().toString().substring(0, 20);
+    String subject = "transfer-" + suffix;
+
+    AccountSummary source = insertTestAccount(
+            subject, "SRC-" + suffix, "Everyday account");
+
+    AccountSummary destination = insertTestAccount(
+            "temporary-" + suffix, "DST-" + suffix, "Savings account");
+
+    jdbc.update("""
+            UPDATE banking.accounts
+            SET customer_id = (
+                SELECT customer_id
+                FROM banking.accounts
+                WHERE id = ?
+            )
+            WHERE id = ?
+            """,
+            source.id(),
+            destination.id());
+
+    UUID cashAccountId = UUID.randomUUID();
+
+    jdbc.update("""
+            INSERT INTO banking.accounts (
+                id, customer_id, account_reference,
+                account_name, currency, account_kind
+            )
+            VALUES (?, NULL, ?, 'Test cash asset', 'USD', 'INTERNAL_ASSET')
+            """,
+            cashAccountId,
+            "CASH-" + suffix);
+
+    insertJournal(cashAccountId, source.id(), "100.00");
+
+    return new TransferFixture(subject, source.id(), destination.id());
+}
+
+private record TransferFixture(
+        String subject,
+        UUID source,
+        UUID destination
+) {
 }
 }
