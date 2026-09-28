@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { auth } from './auth'
 import TransferForm from './TransferForm'
+import AccountHistory from './AccountHistory'
 type Account = {
   id: string
   accountReference: string
@@ -130,6 +131,11 @@ function Accounts() {
 	  <TransferForm
              accounts={state.accounts}
              onTransferred={() => setRevision(value => value + 1)}
+          />
+
+	  <AccountHistory
+             accounts={state.accounts}
+             revision={revision}
           />
 
           <h3>{account.accountName}</h3>

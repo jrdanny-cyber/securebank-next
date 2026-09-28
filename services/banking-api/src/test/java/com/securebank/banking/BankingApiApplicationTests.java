@@ -35,7 +35,10 @@ import com.securebank.banking.ledger.PostingAmount;
 import com.securebank.banking.transfers.TransferService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import com.securebank.banking.accounts.AccountHistoryRepository;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 @SpringBootTest
 @Testcontainers
 @AutoConfigureMockMvc
@@ -837,6 +840,138 @@ void fractionalCentRequestIsRejected() throws Exception {
             .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 
     assertEquals("100.00", balanceOf(fixture, fixture.source()));
+}
+@Autowired
+AccountHistoryRepository accountHistory;
+
+@Test
+void anonymousHistoryRequestIsRejected() throws Exception {
+    mockMvc.perform(get(
+                    "/api/v1/accounts/{id}/transactions",
+                    UUID.randomUUID()))
+            .andExpect(status().isUnauthorized());
+}
+
+@Test
+void transferScopeAloneDoesNotPermitReadingHistory() throws Exception {
+    mockMvc.perform(get(
+                    "/api/v1/accounts/{id}/transactions",
+                    UUID.randomUUID())
+                    .with(jwt().authorities(
+                            new SimpleGrantedAuthority("SCOPE_transfers:write"))))
+            .andExpect(status().isForbidden());
+}
+
+@Test
+@Transactional
+void historyShowsEntriesForTheRequestedOwnedAccount() throws Exception {
+    TransferFixture fixture = createTransferFixture();
+    TransferService.Result result =
+            transferFor(fixture, UUID.randomUUID(), "25.00");
+
+    mockMvc.perform(get(
+                    "/api/v1/accounts/{id}/transactions",
+                    fixture.source())
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[*].direction")
+                    .value(containsInAnyOrder("CREDIT", "DEBIT")))
+            .andExpect(jsonPath("$.items[*].amount")
+                    .value(containsInAnyOrder("100.00", "25.00")))
+            .andExpect(jsonPath("$.hasNext").value(false));
+
+    mockMvc.perform(get(
+                    "/api/v1/accounts/{id}/transactions",
+                    fixture.destination())
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].transactionId")
+                    .value(result.transactionId().toString()))
+            .andExpect(jsonPath("$.items[0].direction").value("CREDIT"))
+            .andExpect(jsonPath("$.items[0].amount").value("25.00"));
+}
+
+@Test
+@Transactional
+void historyHidesOtherCustomersAndUnknownAccounts() throws Exception {
+    TransferFixture fixture = createTransferFixture();
+
+    for (UUID accountId : List.of(fixture.source(), UUID.randomUUID())) {
+        mockMvc.perform(get(
+                        "/api/v1/accounts/{id}/transactions",
+                        accountId)
+                        .with(jwt()
+                                .jwt(token -> token.subject("another-customer"))
+                                .authorities(new SimpleGrantedAuthority(
+                                        "SCOPE_accounts:read"))))
+                .andExpect(status().isNotFound());
+    }
+}
+
+@Test
+@Transactional
+void ownedAccountWithoutPostingsHasEmptyHistory() throws Exception {
+    AccountSummary account = insertTestAccount(
+            "empty-history-user",
+            "EMPTY-HISTORY",
+            "Empty account");
+
+    mockMvc.perform(get(
+                    "/api/v1/accounts/{id}/transactions",
+                    account.id())
+                    .with(jwt()
+                            .jwt(token -> token.subject("empty-history-user"))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(0))
+            .andExpect(jsonPath("$.hasNext").value(false));
+}
+
+@Test
+@Transactional
+void historyPaginationReturnsDifferentEntries() {
+    TransferFixture fixture = createTransferFixture();
+    transferFor(fixture, UUID.randomUUID(), "25.00");
+
+    var first = accountHistory.find(
+            fixture.subject(), fixture.source(), 0, 1);
+
+    var second = accountHistory.find(
+            fixture.subject(), fixture.source(), 1, 1);
+
+    assertEquals(1, first.items().size());
+    assertEquals(1, second.items().size());
+    assertEquals(true, first.hasNext());
+    assertEquals(false, second.hasNext());
+
+    assertNotEquals(
+            first.items().getFirst().transactionId(),
+            second.items().getFirst().transactionId());
+}
+
+@Test
+@Transactional
+void oversizedHistoryPageIsRejected() throws Exception {
+    TransferFixture fixture = createTransferFixture();
+
+    mockMvc.perform(get(
+                    "/api/v1/accounts/{id}/transactions",
+                    fixture.source())
+                    .param("size", "101")
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_accounts:read"))))
+            .andExpect(status().isBadRequest());
 }
 
 @Test
