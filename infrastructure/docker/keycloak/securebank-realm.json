@@ -18,27 +18,36 @@
         "display.on.consent.screen": "true"
       },
       "protocolMappers": [
-  {
-      "name": "subject",
+        {
+          "name": "subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "securebank-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "securebank-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "name": "transfers:write",
+      "description": "Request transfers between owned customer accounts",
       "protocol": "openid-connect",
-      "protocolMapper": "oidc-sub-mapper",
-      "consentRequired": false,
-      "config": {
-        "access.token.claim": "true"
-    }
-  },
-  {
-    "name": "securebank-api-audience",
-    "protocol": "openid-connect",
-    "protocolMapper": "oidc-audience-mapper",
-    "consentRequired": false,
-    "config": {
-      "included.custom.audience": "securebank-api",
-      "access.token.claim": "true",
-      "id.token.claim": "false"
-    }
-  }
-]
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": []
     }
   ],
   "clients": [
@@ -60,7 +69,8 @@
         "http://localhost:5173"
       ],
       "defaultClientScopes": [
-        "accounts:read"
+        "accounts:read",
+        "transfers:write"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",

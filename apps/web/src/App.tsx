@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { auth } from './auth'
-
+import TransferForm from './TransferForm'
 type Account = {
   id: string
   accountReference: string
@@ -31,6 +31,7 @@ function isAccount(value: unknown): value is Account {
 
 function Accounts() {
   const [state, setState] = useState<AccountState>({ kind: 'loading' })
+  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -94,7 +95,7 @@ function Accounts() {
     void loadAccounts()
 
     return () => controller.abort()
-  }, [])
+  }, [revision])
 
   if (state.kind === 'loading') {
     return <p className="notice" role="status">Loading your accounts…</p>
@@ -125,6 +126,11 @@ function Accounts() {
             <span className="currency">{account.currency}</span>
             <span className="status">{account.status}</span>
           </div>
+
+	  <TransferForm
+             accounts={state.accounts}
+             onTransferred={() => setRevision(value => value + 1)}
+          />
 
           <h3>{account.accountName}</h3>
           <p className="reference">{account.accountReference}</p>

@@ -107,3 +107,71 @@ footer { margin-top: 64px; padding-bottom: 24px; color: #596c67; font-size: 12px
   .intro { margin-top: 40px; }
   .section-heading > span { display: none; }
 }
+.transfer-panel {
+  margin-top: 38px;
+  padding: 28px;
+  background: #fff;
+  border: 1px solid #dde4db;
+  border-radius: 18px;
+}
+
+.transfer-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.transfer-form label {
+  display: grid;
+  gap: 8px;
+  color: #435852;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.transfer-form input,
+.transfer-form select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  color: #172c30;
+  background: #fff;
+  border: 1px solid #cbd6ce;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.transfer-form input:disabled,
+.transfer-form select:disabled {
+  background: #f1f3f0;
+  cursor: not-allowed;
+}
+
+.transfer-form .notice,
+.transfer-form button,
+.transfer-help {
+  grid-column: 1 / -1;
+}
+
+.transfer-success {
+  border: 1px solid #b7d9c0;
+  color: #214c35;
+}
+
+.transfer-help {
+  margin: 0;
+  color: #596c67;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .transfer-form {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-panel {
+    padding: 20px;
+  }
+}
