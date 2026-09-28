@@ -14,7 +14,9 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.http.MediaType;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import com.securebank.banking.accounts.AccountQueryRepository;
 import com.securebank.banking.accounts.AccountSummary;
 import org.springframework.transaction.annotation.Transactional;
@@ -737,5 +739,131 @@ private record TransferFixture(
         UUID source,
         UUID destination
 ) {
+}
+@Test
+void anonymousTransferRequestIsRejected() throws Exception {
+    mockMvc.perform(post("/api/v1/transfers")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isUnauthorized());
+}
+
+@Test
+void accountsReadScopeDoesNotPermitTransfers() throws Exception {
+    mockMvc.perform(post("/api/v1/transfers")
+                    .with(jwt().authorities(
+                            new SimpleGrantedAuthority("SCOPE_accounts:read")))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isForbidden());
+}
+
+@Test
+@Transactional
+void transferEndpointPostsAndReplaysTheSameRequest() throws Exception {
+    TransferFixture fixture = createTransferFixture();
+    UUID key = UUID.randomUUID();
+    String body = transferJson(fixture, "25.00");
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_transfers:write")))
+                    .header("Idempotency-Key", key.toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.transactionId").isNotEmpty())
+            .andExpect(jsonPath("$.replayed").value(false));
+
+    UUID transactionId = jdbc.queryForObject("""
+            SELECT transaction_id
+            FROM banking.transfer_requests
+            WHERE idempotency_key = ?
+            """, UUID.class, key);
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_transfers:write")))
+                    .header("Idempotency-Key", key.toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.transactionId")
+                    .value(transactionId.toString()))
+            .andExpect(jsonPath("$.replayed").value(true));
+
+    assertEquals("75.00", balanceOf(fixture, fixture.source()));
+    assertEquals("25.00", balanceOf(fixture, fixture.destination()));
+}
+
+@Test
+@Transactional
+void insufficientFundsReturnsConflict() throws Exception {
+    TransferFixture fixture = createTransferFixture();
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_transfers:write")))
+                    .header("Idempotency-Key", UUID.randomUUID().toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferJson(fixture, "100.01")))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("INSUFFICIENT_FUNDS"));
+
+    assertEquals("100.00", balanceOf(fixture, fixture.source()));
+    assertEquals("0.00", balanceOf(fixture, fixture.destination()));
+}
+
+@Test
+@Transactional
+void fractionalCentRequestIsRejected() throws Exception {
+    TransferFixture fixture = createTransferFixture();
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_transfers:write")))
+                    .header("Idempotency-Key", UUID.randomUUID().toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferJson(fixture, "25.501")))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+    assertEquals("100.00", balanceOf(fixture, fixture.source()));
+}
+
+@Test
+@Transactional
+void transferRequiresIdempotencyKey() throws Exception {
+    TransferFixture fixture = createTransferFixture();
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .with(jwt()
+                            .jwt(token -> token.subject(fixture.subject()))
+                            .authorities(new SimpleGrantedAuthority(
+                                    "SCOPE_transfers:write")))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferJson(fixture, "25.00")))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+}
+
+private String transferJson(TransferFixture fixture, String amount) {
+    return """
+            {
+              "sourceAccountId": "%s",
+              "destinationAccountId": "%s",
+              "amount": "%s",
+              "currency": "USD",
+              "description": "Move money to savings"
+            }
+            """.formatted(fixture.source(), fixture.destination(), amount);
 }
 }

@@ -26,6 +26,8 @@ public class SecurityConfig {
                             .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/accounts")
                             .hasAuthority("SCOPE_accounts:read")
+		        .requestMatchers(HttpMethod.POST, "/api/v1/transfers")
+                        .hasAuthority("SCOPE_transfers:write")
                         .anyRequest()
                             .denyAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer
