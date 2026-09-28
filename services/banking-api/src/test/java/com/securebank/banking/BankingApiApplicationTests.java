@@ -480,4 +480,99 @@ void customerAccountMustHaveAnOwner() {
 
     assertEquals("23514", sqlState(failure));
 }
+@Test
+@Transactional
+void sameCustomerCannotReuseRequestKeyForAnotherTransaction() {
+    AccountSummary source = insertTestAccount(
+            "retry-source", "RETRY-SOURCE", "Source account");
+
+    AccountSummary destination = insertTestAccount(
+            "retry-destination", "RETRY-DEST", "Destination account");
+
+    UUID key = UUID.randomUUID();
+
+    UUID firstTransaction = insertJournal(
+            source.id(), destination.id(), "10.00");
+
+    UUID secondTransaction = insertJournal(
+            source.id(), destination.id(), "20.00");
+
+    insertTransferRequest("retry-source", key, firstTransaction);
+
+    DataAccessException failure = assertThrows(
+            DataAccessException.class,
+            () -> insertTransferRequest(
+                    "retry-source", key, secondTransaction));
+
+    assertEquals("23505", sqlState(failure));
+}
+
+@Test
+@Transactional
+void differentCustomersCanUseTheSameRequestKey() {
+    AccountSummary alice = insertTestAccount(
+            "request-alice", "REQUEST-ALICE", "Alice account");
+
+    AccountSummary bob = insertTestAccount(
+            "request-bob", "REQUEST-BOB", "Bob account");
+
+    UUID sharedKey = UUID.randomUUID();
+
+    UUID aliceTransaction = insertJournal(
+            alice.id(), bob.id(), "10.00");
+
+    UUID bobTransaction = insertJournal(
+            bob.id(), alice.id(), "5.00");
+
+    insertTransferRequest("request-alice", sharedKey, aliceTransaction);
+    insertTransferRequest("request-bob", sharedKey, bobTransaction);
+
+    assertEquals(
+            2L,
+            jdbc.queryForObject("""
+                    SELECT count(*)
+                    FROM banking.transfer_requests
+                    WHERE idempotency_key = ?
+                    """, Long.class, sharedKey));
+}
+
+@Test
+@Transactional
+void transferRequestMustReferenceAnExistingJournalTransaction() {
+    insertTestAccount(
+            "missing-journal-user",
+            "MISSING-JOURNAL",
+            "Customer account");
+
+    DataAccessException failure = assertThrows(
+            DataAccessException.class,
+            () -> insertTransferRequest(
+                    "missing-journal-user",
+                    UUID.randomUUID(),
+                    UUID.randomUUID()));
+
+    assertEquals("23503", sqlState(failure));
+}
+
+private void insertTransferRequest(
+        String identitySubject,
+        UUID idempotencyKey,
+        UUID transactionId
+) {
+    UUID customerId = jdbc.queryForObject("""
+            SELECT id
+            FROM banking.customers
+            WHERE identity_subject = ?
+            """, UUID.class, identitySubject);
+
+    jdbc.update("""
+            INSERT INTO banking.transfer_requests (
+                customer_id, idempotency_key, transaction_id
+            )
+            VALUES (?, ?, ?)
+            """,
+            customerId,
+            idempotencyKey,
+            transactionId);
+}
 }
