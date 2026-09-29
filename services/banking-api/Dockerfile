@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM eclipse-temurin:21-jdk-jammy@sha256:6adefddd4a20bceef702cedb0b03952fcd7691f9c7ccffe27014992abc0b46bd AS build
+FROM eclipse-temurin:25-jdk-jammy@sha256:44a8072ddef2f0706228ec877319fffc3a293dfd5f024bbe9c17740df2cdc9d1 AS build
 WORKDIR /workspace
 
 COPY .mvn/ .mvn/
@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     bash ./mvnw --batch-mode --no-transfer-progress \
     -DskipTests package
 
-FROM eclipse-temurin:21-jre-jammy@sha256:e9aaf73145bbd1f9f6ec7f6867dd75a44f34b1a6c32a813504bf4129be2d09d7 AS runtime
+FROM eclipse-temurin:25-jre-jammy@sha256:6a11121e5419a1eb4def2bba2f74a4c1b560395b9c26b52e37485d2bf58f7958 AS runtime
 WORKDIR /app
 
 RUN groupadd --gid 10001 banking \
