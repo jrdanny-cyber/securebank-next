@@ -74,6 +74,13 @@ jobs:
             "$RUNNER_TEMP/trivy-work"
           chmod 700 "$RUNNER_TEMP/trivy-work"
 
+          docker save \
+            --output "$RUNNER_TEMP/image-input/image.tar" \
+            "$IMAGE_TAG"
+
+          test -s "$RUNNER_TEMP/image-input/image.tar"
+          ls -lh "$RUNNER_TEMP/image-input/image.tar"
+
       - name: Pull pinned scanner
         run: docker pull --platform linux/amd64 "$TRIVY_IMAGE"
 
