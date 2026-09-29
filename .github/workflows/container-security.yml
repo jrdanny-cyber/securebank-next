@@ -69,10 +69,10 @@ jobs:
 
       - name: Export image for scanning
         run: |
-          mkdir -p "$RUNNER_TEMP/image-input" "$RUNNER_TEMP/scan-reports"
-          docker save \
-            --output "$RUNNER_TEMP/image-input/image.tar" \
-            "$IMAGE_TAG"
+          mkdir -p "$RUNNER_TEMP/image-input" \
+            "$RUNNER_TEMP/scan-reports" \
+            "$RUNNER_TEMP/trivy-work"
+          chmod 700 "$RUNNER_TEMP/trivy-work"
 
       - name: Pull pinned scanner
         run: docker pull --platform linux/amd64 "$TRIVY_IMAGE"
@@ -85,7 +85,7 @@ jobs:
             --read-only \
             --cap-drop ALL \
             --security-opt no-new-privileges:true \
-            --tmpfs /tmp:rw,noexec,nosuid,size=2g,mode=1777 \
+            --mount "type=bind,source=$RUNNER_TEMP/trivy-work,target=/tmp" \ \
             --env HOME=/tmp \
             --mount "type=bind,source=$RUNNER_TEMP/image-input,target=/input,readonly" \
             --mount "type=bind,source=$RUNNER_TEMP/scan-reports,target=/reports" \
