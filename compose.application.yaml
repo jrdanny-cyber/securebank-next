@@ -1,0 +1,30 @@
+services:
+  banking-api:
+    image: securebank/banking-api:local
+    build:
+      context: ./services/banking-api
+      dockerfile: Dockerfile
+    environment:
+      BANKING_DB_URL: jdbc:postgresql://postgres:5432/securebank
+      BANKING_APP_PASSWORD: ${BANKING_APP_PASSWORD:?Set BANKING_APP_PASSWORD in .env}
+      BANKING_MIGRATOR_PASSWORD: ${BANKING_MIGRATOR_PASSWORD:?Set BANKING_MIGRATOR_PASSWORD in .env}
+      BANKING_JWT_ISSUER: http://localhost:8180/realms/securebank
+      BANKING_JWT_JWK_SET_URI: http://keycloak:8080/realms/securebank/protocol/openid-connect/certs
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70.0"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 768m
+    cpus: 1.0
+    stop_grace_period: 30s
