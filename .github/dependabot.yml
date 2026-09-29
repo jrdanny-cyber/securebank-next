@@ -17,3 +17,15 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /services/banking-api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
