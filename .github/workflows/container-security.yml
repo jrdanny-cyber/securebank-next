@@ -1,0 +1,121 @@
+name: Container Security
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  container:
+    name: Container security (${{ matrix.service }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: banking-api
+            context: services/banking-api
+          - service: web
+            context: apps/web
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+      IMAGE_TAG: securebank/${{ matrix.service }}:${{ github.sha }}
+      BUILD_CONTEXT: ${{ matrix.context }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build application image
+        run: |
+          docker build \
+            --pull \
+            --platform linux/amd64 \
+            --tag "$IMAGE_TAG" \
+            "$BUILD_CONTEXT"
+
+      - name: Verify runtime user
+        run: |
+          runtime_user="$(docker image inspect \
+            --format '{{.Config.User}}' "$IMAGE_TAG")"
+
+          case "$runtime_user" in
+            10001:10001|101:101)
+              echo "Expected non-root runtime user: $runtime_user"
+              ;;
+            *)
+              echo "::error::Unexpected runtime user: $runtime_user"
+              exit 1
+              ;;
+          esac
+
+      - name: Export image for scanning
+        run: |
+          mkdir -p "$RUNNER_TEMP/image-input" "$RUNNER_TEMP/scan-reports"
+          docker save \
+            --output "$RUNNER_TEMP/image-input/image.tar" \
+            "$IMAGE_TAG"
+
+      - name: Pull pinned scanner
+        run: docker pull --platform linux/amd64 "$TRIVY_IMAGE"
+
+      - name: Scan for HIGH and CRITICAL vulnerabilities
+        run: |
+          docker run --rm \
+            --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --tmpfs /tmp:rw,noexec,nosuid,size=2g,mode=1777 \
+            --env HOME=/tmp \
+            --mount "type=bind,source=$RUNNER_TEMP/image-input,target=/input,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/scan-reports,target=/reports" \
+            "$TRIVY_IMAGE" \
+            image \
+            --input /input/image.tar \
+            --cache-dir /tmp/trivy-cache \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed=false \
+            --exit-code 1 \
+            --timeout 15m \
+            --format table \
+            --output /reports/vulnerabilities.txt
+
+      - name: Show vulnerability report
+        if: ${{ !cancelled() }}
+        run: |
+          report="$RUNNER_TEMP/scan-reports/vulnerabilities.txt"
+          if [ -f "$report" ]; then
+            cat "$report"
+          else
+            echo "No report was generated. Check earlier steps for errors."
+          fi
+
+      - name: Save vulnerability report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: container-security-${{ matrix.service }}
+          path: ${{ runner.temp }}/scan-reports/
+          if-no-files-found: warn
+          retention-days: 14
