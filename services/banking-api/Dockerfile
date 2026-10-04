@@ -13,7 +13,14 @@ RUN --mount=type=cache,target=/root/.m2 \
     bash ./mvnw --batch-mode --no-transfer-progress \
     -DskipTests package
 
-FROM eclipse-temurin:21-jre-jammy@sha256:e9aaf73145bbd1f9f6ec7f6867dd75a44f34b1a6c32a813504bf4129be2d09d7 AS runtime
+FROM eclipse-temurin:21-jre-jammy@sha256:f04fb34e053148344e83317976114ec3f37e4b830ec8bdab5a2fe3cecd7d010b AS runtime
+
+USER 0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade \
+        libssl3=3.0.2-0ubuntu1.30 \
+        openssl=3.0.2-0ubuntu1.30 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 RUN groupadd --gid 10001 banking \

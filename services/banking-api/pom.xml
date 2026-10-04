@@ -31,7 +31,7 @@
 
 		<!-- Temporary security overrides; review when upgrading Spring Boot. -->
                 <tomcat.version>11.0.26</tomcat.version>
-                <jackson-bom.version>3.1.6</jackson-bom.version>
+                <jackson-bom.version>3.1.7</jackson-bom.version>
 	</properties>
 	<dependencies>
 		<dependency>

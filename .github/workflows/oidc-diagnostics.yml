@@ -1,0 +1,72 @@
+name: OIDC Diagnostics
+
+on:
+  push:
+    branches:
+      - feature/ecr-image-publishing
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  inspect:
+    name: Inspect GitHub OIDC claims
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Display selected identity claims
+        shell: bash
+        run: |
+          node <<'NODE'
+          async function main() {
+            const url = new URL(
+              process.env.ACTIONS_ID_TOKEN_REQUEST_URL
+            );
+            url.searchParams.set('audience', 'sts.amazonaws.com');
+
+            const response = await fetch(url, {
+              headers: {
+                Authorization:
+                  `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}`,
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error(
+                `OIDC token request failed: HTTP ${response.status}`
+              );
+            }
+
+            const result = await response.json();
+            const token = result.value;
+
+            if (typeof token !== 'string' || token.split('.').length !== 3) {
+              throw new Error('Unexpected OIDC token response');
+            }
+
+            console.log(`::add-mask::${token}`);
+
+            const claims = JSON.parse(
+              Buffer.from(token.split('.')[1], 'base64url').toString('utf8')
+            );
+
+            console.log(JSON.stringify({
+              issuer: claims.iss,
+              audience: claims.aud,
+              subject: claims.sub,
+              repository: claims.repository,
+              repository_id: claims.repository_id,
+              repository_owner_id: claims.repository_owner_id,
+              ref: claims.ref,
+            }, null, 2));
+          }
+
+          main().catch(error => {
+            console.error(error.message);
+            process.exitCode = 1;
+          });
+          NODE
