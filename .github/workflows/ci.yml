@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   backend:
@@ -142,3 +142,142 @@ jobs:
           path: ${{ runner.temp }}/frontend-dependency-audit.txt
           if-no-files-found: warn
           retention-days: 14
+
+  container-security:
+    name: Container checks
+    uses: ./.github/workflows/container-security.yml
+
+  secret-scanning:
+    name: Secret checks
+    uses: ./.github/workflows/secret-scanning.yml
+
+  publish:
+    name: Publish ECR (${{ matrix.service }})
+    needs:
+      - backend
+      - frontend
+      - frontend-dependency-security
+      - container-security
+      - secret-scanning
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - banking-api
+          - web
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      AWS_REGION: us-east-1
+      AWS_PAGER: ""
+      ECR_REGISTRY: 535079144516.dkr.ecr.us-east-1.amazonaws.com
+      SERVICE: ${{ matrix.service }}
+      SOURCE_IMAGE: securebank/${{ matrix.service }}:${{ github.sha }}
+      RELEASE_TAG: sha-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      DOCKER_CONFIG: ${{ runner.temp }}/ecr-docker-config
+
+    steps:
+      - name: Download scanned image from this workflow run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "scanned-image-$SERVICE" \
+            --dir "$RUNNER_TEMP/scanned-image"
+
+      - name: Verify archive and load image
+        run: |
+          cd "$RUNNER_TEMP/scanned-image"
+          sha256sum --check image.tar.sha256
+          docker load --input image.tar
+
+          runtime_user="$(docker image inspect \
+            --format '{{.Config.User}}' "$SOURCE_IMAGE")"
+
+          case "$SERVICE:$runtime_user" in
+            banking-api:10001:10001|web:101:101)
+              echo "Verified runtime user: $runtime_user"
+              ;;
+            *)
+              echo "::error::Unexpected runtime user for $SERVICE: $runtime_user"
+              exit 1
+              ;;
+          esac
+
+      - name: Obtain temporary AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::535079144516:role/securebank-next-github-ecr-publisher
+          aws-region: us-east-1
+          allowed-account-ids: "535079144516"
+          role-session-name: gha-${{ github.run_id }}-${{ github.run_attempt }}
+          role-duration-seconds: 900
+          unset-current-credentials: true
+          translate-env-variables: false
+
+      - name: Log in to ECR
+        run: |
+          mkdir -p "$DOCKER_CONFIG"
+          chmod 700 "$DOCKER_CONFIG"
+
+          aws ecr get-login-password --region "$AWS_REGION" |
+            docker login \
+              --username AWS \
+              --password-stdin \
+              "$ECR_REGISTRY"
+
+      - name: Publish the scanned image
+        run: |
+          destination="$ECR_REGISTRY/securebank-next/$SERVICE:$RELEASE_TAG"
+          docker tag "$SOURCE_IMAGE" "$destination"
+          docker push "$destination"
+
+      - name: Record published image digest
+        run: |
+          repository="securebank-next/$SERVICE"
+          digest="$(aws ecr describe-images \
+            --repository-name "$repository" \
+            --image-ids "imageTag=$RELEASE_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::ECR did not return a valid image digest"
+            exit 1
+          fi
+
+          mkdir -p "$RUNNER_TEMP/published-image"
+          printf '%s\n' "$ECR_REGISTRY/$repository@$digest" \
+            > "$RUNNER_TEMP/published-image/$SERVICE.txt"
+
+          {
+            printf '### Published %s\n\n' "$SERVICE"
+            printf 'Tag: `%s`\n\n' "$RELEASE_TAG"
+            printf 'Image: `%s/%s@%s`\n' \
+              "$ECR_REGISTRY" "$repository" "$digest"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save published image reference
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: published-image-${{ matrix.service }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/published-image/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Log out of ECR
+        if: always()
+        run: docker logout "$ECR_REGISTRY"
