@@ -152,6 +152,12 @@ jobs:
     uses: ./.github/workflows/secret-scanning.yml
 
   publish:
+      - name: Configure temporary Docker authentication directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/ecr-docker-config"
+          chmod 700 "$RUNNER_TEMP/ecr-docker-config"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/ecr-docker-config" >> "$GITHUB_ENV"
+
     name: Publish ECR (${{ matrix.service }})
     needs:
       - backend
@@ -186,7 +192,6 @@ jobs:
       SERVICE: ${{ matrix.service }}
       SOURCE_IMAGE: securebank/${{ matrix.service }}:${{ github.sha }}
       RELEASE_TAG: sha-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-      DOCKER_CONFIG: ${{ runner.temp }}/ecr-docker-config
 
     steps:
       - name: Download scanned image from this workflow run
