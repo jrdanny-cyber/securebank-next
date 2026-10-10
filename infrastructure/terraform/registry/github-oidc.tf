@@ -21,7 +21,7 @@ resource "aws_iam_role" "github_ecr_publisher" {
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = "repo:jrdanny-cyber@315297929/securebank-next@1393448122:ref:refs/heads/main"
+            "token.actions.githubusercontent.com:sub" = "repo:jrdanny-cyber@315297929/securebank-next@1393448122:ref:refs/heads/main
           }
         }
       }
