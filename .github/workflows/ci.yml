@@ -152,7 +152,7 @@ jobs:
     uses: ./.github/workflows/secret-scanning.yml
 
   publish:
-      - name: Configure temporary Docker authentication directory
+    - name: Configure temporary Docker authentication directory
         run: |
           mkdir -p "$RUNNER_TEMP/ecr-docker-config"
           chmod 700 "$RUNNER_TEMP/ecr-docker-config"
