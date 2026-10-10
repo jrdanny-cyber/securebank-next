@@ -49,7 +49,7 @@ jobs:
 
       - name: Save test reports
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-test-reports
           path: services/banking-api/target/surefire-reports/
@@ -57,7 +57,7 @@ jobs:
           retention-days: 7
 
       - name: Save backend package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: banking-api
           path: services/banking-api/target/banking-api-*.jar
@@ -97,7 +97,7 @@ jobs:
         run: npm run build
 
       - name: Save frontend build
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-dist
           path: apps/web/dist/
@@ -136,7 +136,7 @@ jobs:
 
       - name: Save dependency audit report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: frontend-dependency-audit
           path: ${{ runner.temp }}/frontend-dependency-audit.txt
@@ -275,7 +275,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save published image reference
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: published-image-${{ matrix.service }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/published-image/
