@@ -1,0 +1,6 @@
+apiVersion: v2
+name: securebank
+description: SecureBank frontend and banking API
+type: application
+version: 0.1.0
+appVersion: "0.0.1"
