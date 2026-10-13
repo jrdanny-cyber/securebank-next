@@ -8,6 +8,7 @@ api:
   database:
     url: jdbc:postgresql://postgres.example.invalid:5432/securebank
     existingSecret: render-only-database-secret
+    caConfigMap: render-only-rds-ca
   auth:
     issuerUri: https://auth.example.invalid/realms/securebank
     jwkSetUri: https://auth.example.invalid/realms/securebank/protocol/openid-connect/certs

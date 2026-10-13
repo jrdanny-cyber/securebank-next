@@ -1,0 +1,10 @@
+api:
+  image:
+    digest: sha256:a3061e4b5b0969c3b812b93558b626c75a3861047ad84545020bd88a1247bc26
+  database:
+    url: "jdbc:postgresql://securebank-next-dev-postgres.ca5q6w8w0izb.us-east-1.rds.amazonaws.com:5432/securebank?sslmode=verify-full&sslrootcert=/etc/securebank/database-ca/rds-ca-bundle.pem"
+    caConfigMap: securebank-rds-ca
+
+migration:
+  enabled: true
+  existingSecret: securebank-db-migrator

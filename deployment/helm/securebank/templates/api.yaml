@@ -89,7 +89,17 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.api.database.caConfigMap }}
+            - name: database-ca
+              mountPath: /etc/securebank/database-ca
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 128Mi
+        {{- if .Values.api.database.caConfigMap }}
+        - name: database-ca
+          configMap:
+            name: {{ .Values.api.database.caConfigMap | quote }}
+        {{- end }}
