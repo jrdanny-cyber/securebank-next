@@ -1,0 +1,101 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: securebank-db-bootstrap
+  namespace: securebank
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: securebank-db-bootstrap
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: postgres:17-alpine
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              psql -X --no-password --file=/bootstrap/bootstrap.sql
+              psql -X --no-password --set=ON_ERROR_STOP=1 <<'SQL'
+              SELECT current_user;
+              SELECT ssl, version
+              FROM pg_stat_ssl WHERE pid = pg_backend_pid();
+              SELECT nspname, pg_get_userbyid(nspowner) AS owner
+              FROM pg_namespace WHERE nspname = 'banking';
+              SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
+              FROM pg_roles
+              WHERE rolname IN ('banking_app', 'banking_migrator');
+              SQL
+          env:
+            - name: PGHOST
+              value: securebank-next-dev-postgres.ca5q6w8w0izb.us-east-1.rds.amazonaws.com
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: securebank
+            - name: PGUSER
+              value: banking_admin
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PGSSLROOTCERT
+              value: /certs/rds-ca-bundle.pem
+            - name: PGCONNECT_TIMEOUT
+              value: "15"
+            - name: HOME
+              value: /tmp
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: securebank-db-bootstrap-admin
+                  key: PGPASSWORD
+            - name: BANKING_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: securebank-db-app
+                  key: BANKING_APP_PASSWORD
+            - name: BANKING_MIGRATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: securebank-db-migrator
+                  key: BANKING_MIGRATOR_PASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
+            - name: certificates
+              mountPath: /certs
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: securebank-db-bootstrap
+        - name: certificates
+          configMap:
+            name: securebank-rds-ca
+        - name: tmp
+          emptyDir:
+            sizeLimit: 32Mi
