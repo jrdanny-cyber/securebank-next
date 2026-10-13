@@ -1,0 +1,29 @@
+{{- if .Values.ingress.enabled }}
+{{- if not .Values.ingress.inboundCidrs }}
+{{- fail "Set ingress.inboundCidrs explicitly before enabling ingress" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-web
+  annotations:
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme | quote }}
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ required "Set ingress.certificateArn" .Values.ingress.certificateArn | quote }}
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ join "," .Values.ingress.inboundCidrs | quote }}
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+spec:
+  ingressClassName: alb
+  rules:
+    - host: {{ required "Set ingress.host" .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-web
+                port:
+                  number: 80
+{{- end }}

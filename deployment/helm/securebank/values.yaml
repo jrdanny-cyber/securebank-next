@@ -1,0 +1,50 @@
+web:
+  image:
+    repository: 535079144516.dkr.ecr.us-east-1.amazonaws.com/securebank-next/web
+    digest: ""
+  replicas: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+api:
+  image:
+    repository: 535079144516.dkr.ecr.us-east-1.amazonaws.com/securebank-next/banking-api
+    digest: ""
+  replicas: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  database:
+    url: ""
+    username: banking_app
+    existingSecret: ""
+    passwordKey: BANKING_APP_PASSWORD
+  auth:
+    issuerUri: ""
+    jwkSetUri: ""
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+auth:
+  keycloakUrl: ""
+  realm: securebank
+  clientId: securebank-web
+
+ingress:
+  enabled: false
+  scheme: internet-facing
+  host: ""
+  certificateArn: ""
+  inboundCidrs: []
