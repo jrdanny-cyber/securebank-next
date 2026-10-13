@@ -10,6 +10,7 @@ for enabled in false true; do
     --values "$FIXTURES" \
     --set "api.autoscaling.enabled=$enabled" \
     --set "ingress.enabled=$enabled" \
+    --set "migration.enabled=$enabled" \
     --strict
 
   helm template securebank "$CHART" \
@@ -17,5 +18,6 @@ for enabled in false true; do
     --values "$FIXTURES" \
     --set "api.autoscaling.enabled=$enabled" \
     --set "ingress.enabled=$enabled" \
+    --set "migration.enabled=$enabled" \
     > /dev/null
 done

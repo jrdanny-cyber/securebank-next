@@ -20,3 +20,6 @@ ingress:
   certificateArn: arn:aws:acm:us-east-1:535079144516:certificate/00000000-0000-0000-0000-000000000000
   inboundCidrs:
     - 192.0.2.1/32
+
+migration:
+  existingSecret: render-only-migrator-secret
