@@ -28,6 +28,7 @@ api:
     username: banking_app
     existingSecret: ""
     passwordKey: BANKING_APP_PASSWORD
+    caConfigMap: ""
   auth:
     issuerUri: ""
     jwkSetUri: ""
