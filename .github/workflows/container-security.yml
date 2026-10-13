@@ -20,6 +20,8 @@ jobs:
             context: services/banking-api
           - service: web
             context: apps/web
+          - service: keycloak
+            context: infrastructure/docker/keycloak
 
     defaults:
       run:
@@ -49,8 +51,8 @@ jobs:
           runtime_user="$(docker image inspect \
             --format '{{.Config.User}}' "$IMAGE_TAG")"
 
-          case "$runtime_user" in
-            10001:10001|101:101)
+          case "${{ matrix.service }}:$runtime_user" in
+            banking-api:10001:10001|web:101:101|keycloak:1000:0)
               echo "Expected non-root runtime user: $runtime_user"
               ;;
             *)
