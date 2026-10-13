@@ -48,3 +48,16 @@ ingress:
   host: ""
   certificateArn: ""
   inboundCidrs: []
+
+migration:
+  enabled: false
+  existingSecret: ""
+  passwordKey: BANKING_MIGRATOR_PASSWORD
+  activeDeadlineSeconds: 300
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
