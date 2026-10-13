@@ -1,0 +1,63 @@
+name: Helm Validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  helm:
+    name: Helm lint and render
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      HELM_VERSION: v4.1.4
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Helm
+        run: |
+          set -euo pipefail
+
+          install_dir="$RUNNER_TEMP/securebank-helm"
+          mkdir -p "$install_dir"
+          cd "$install_dir"
+
+          archive="helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          base_url="https://get.helm.sh"
+
+          curl --fail --location --retry 3 \
+            --connect-timeout 15 --max-time 120 \
+            "$base_url/$archive" --output "$archive"
+
+          curl --fail --location --retry 3 \
+            --connect-timeout 15 --max-time 120 \
+            "$base_url/$archive.sha256" --output "$archive.sha256"
+
+          checksum="$(tr -d '[:space:]' < "$archive.sha256")"
+          [[ "$checksum" =~ ^[0-9a-fA-F]{64}$ ]]
+          printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check
+
+          tar -xzf "$archive" linux-amd64/helm
+          echo "$install_dir/linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Verify Helm version
+        run: |
+          version="$(helm version --short)"
+          [[ "$version" == "$HELM_VERSION"+* ]]
+          printf '%s\n' "$version"
+
+      - name: Validate application chart
+        run: bash scripts/validate-helm.sh
