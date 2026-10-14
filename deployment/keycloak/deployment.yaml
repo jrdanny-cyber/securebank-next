@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: identity
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: identity
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 0
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          image: 535079144516.dkr.ecr.us-east-1.amazonaws.com/securebank-next/keycloak@sha256:912f66fea94594f434e4fe9bdff89a92e0f272ba15c9adffbed37b24ec68de21
+          args:
+            - start
+            - --optimized
+            - --import-realm
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          env:
+            - name: KC_DB_URL
+              value: jdbc:postgresql://securebank-next-dev-postgres.ca5q6w8w0izb.us-east-1.rds.amazonaws.com:5432/keycloak
+            - name: KC_DB_USERNAME
+              value: keycloak_app
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db
+                  key: KC_DB_PASSWORD
+            - name: KC_DB_TLS_MODE
+              value: verify-server
+            - name: KC_DB_TLS_TRUST_STORE_FILE
+              value: /certs/rds-ca-bundle.pem
+            - name: KC_HOSTNAME
+              value: http://localhost:8180
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_CACHE
+              value: local
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: management
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+            periodSeconds: 10
+          volumeMounts:
+            - name: certificates
+              mountPath: /certs
+              readOnly: true
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+            - name: data
+              mountPath: /opt/keycloak/data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: certificates
+          configMap:
+            name: securebank-rds-ca
+        - name: realm
+          configMap:
+            name: keycloak-realm
+        - name: data
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi

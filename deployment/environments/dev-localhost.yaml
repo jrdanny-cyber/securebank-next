@@ -1,0 +1,27 @@
+web:
+  image:
+    digest: sha256:53a1bee8d68ade09a474541d0b9445eaace227f89295f26269c6818326082d88
+
+api:
+  image:
+    digest: sha256:89a637491362c05c813b7d8e4c0b116b9762c2af033c1b54c0a02d05a7be6463
+  database:
+    url: "jdbc:postgresql://securebank-next-dev-postgres.ca5q6w8w0izb.us-east-1.rds.amazonaws.com:5432/securebank?sslmode=verify-full&sslrootcert=/etc/securebank/database-ca/rds-ca-bundle.pem"
+    existingSecret: securebank-db-app
+    caConfigMap: securebank-rds-ca
+  auth:
+    issuerUri: http://localhost:8180/realms/securebank
+    jwkSetUri: http://keycloak.identity.svc.cluster.local:8080/realms/securebank/protocol/openid-connect/certs
+  autoscaling:
+    enabled: false
+
+auth:
+  keycloakUrl: http://localhost:8180
+  realm: securebank
+  clientId: securebank-web
+
+ingress:
+  enabled: false
+
+migration:
+  enabled: false
