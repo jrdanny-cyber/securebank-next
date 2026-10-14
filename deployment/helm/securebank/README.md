@@ -77,3 +77,19 @@ migration Job merely to start another run.
 Use the same API image digest for migrations and application deployment.
 Migrations must remain compatible with the previous API version during rollout.
 Rolling back an application does not roll back database migrations.
+
+## Deployment failure validation
+
+The deployment script accepts MIGRATION_SECRET to select an existing migrator
+Secret. It defaults to securebank-db-migrator.
+
+Validated in development using a separate Secret with an invalid password:
+- PostgreSQL rejected authentication with SQLSTATE 28P01.
+- The script exited with status 1 before the Helm rollout.
+- Helm remained at revision 2.
+- API and frontend remained 2/2 Ready.
+- The deployment lock was removed.
+- No working database credentials were changed.
+
+This validates the authentication-failure path. Timeout, concurrent-run, and
+Helm-rollout failure scenarios require separate tests.

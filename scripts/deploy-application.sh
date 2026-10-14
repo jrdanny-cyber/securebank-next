@@ -7,6 +7,7 @@ VALUES="$REPO_ROOT/deployment/environments/dev-localhost.yaml"
 NAMESPACE=securebank
 RELEASE=securebank
 LOCK=securebank-deployment-lock
+MIGRATION_SECRET="${MIGRATION_SECRET:-securebank-db-migrator}"
 MODE="${1:-deploy}"
 
 case "$MODE" in
@@ -27,7 +28,7 @@ if [[ "$(kubectl config current-context)" != securebank-next-dev ]]; then
 fi
 
 kubectl get namespace "$NAMESPACE" >/dev/null
-kubectl get secret securebank-db-app securebank-db-migrator \
+kubectl get secret securebank-db-app "$MIGRATION_SECRET" \
   -n "$NAMESPACE" >/dev/null
 kubectl get configmap securebank-rds-ca -n "$NAMESPACE" >/dev/null
 
@@ -65,7 +66,7 @@ helm template "${COMMON[@]}" \
 helm template "${COMMON[@]}" \
   --set migration.enabled=true \
   --set-string "migration.jobName=$JOB_NAME" \
-  --set-string migration.existingSecret=securebank-db-migrator \
+  --set-string "migration.existingSecret=$MIGRATION_SECRET" \
   --show-only templates/migration-job.yaml \
   > "$WORK_DIR/migration.yaml"
 
