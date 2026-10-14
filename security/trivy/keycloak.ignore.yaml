@@ -1,0 +1,11 @@
+vulnerabilities:
+  - id: CVE-2025-59250
+    paths:
+      - opt/keycloak/lib/lib/main/com.microsoft.sqlserver.mssql-jdbc-13.2.1.jre11.jar
+    expired_at: 2026-11-14
+    statement: >-
+      False positive caused by missing .jre11 suffix in bundled version metadata.
+      Microsoft confirms 13.2.1 includes the fix. Inspected JAR filename,
+      Bundle-Version and Maven pom.properties.
+      Evidence: https://github.com/microsoft/mssql-jdbc/issues/2831
+      Reassess when updating Keycloak or the JDBC driver.

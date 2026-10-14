@@ -1,5 +1,5 @@
 locals {
-  services = toset(["banking-api", "web"])
+  services = toset(["banking-api", "web", "keycloak"])
 }
 
 resource "aws_ecr_repository" "application" {
