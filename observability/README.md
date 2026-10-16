@@ -42,3 +42,20 @@ Deleting its PVCs deletes the backing volumes.
 Prometheus retention limits are not backups.
 Grafana credentials must be restored separately before reinstalling the chart.
 Alert delivery to an external destination has not yet been configured.
+
+## Banking API metrics validation
+
+- Metrics are scraped on management port 9001.
+- Both API replicas reported up=1, and JVM metrics were available.
+- A temporary client Deployment reached the frontend health endpoint.
+- The client resolved the metrics Service, but its metrics request timed out.
+- The API ingress policy permits metrics traffic from the selected Prometheus
+  pods in monitoring and application traffic from the release's frontend pods.
+- The temporary client Deployment was removed after testing.
+
+The deployment script uses Helm's server-connected dry run for application
+preflight. A kubectl apply dry run against the Helm-managed Deployment merged
+the old TCP probe with the new HTTP probe and produced an invalid combined
+handler. The migration Job retains its server-side create dry run.
+
+Helm preflight does not guarantee that every actual update will pass admission.
