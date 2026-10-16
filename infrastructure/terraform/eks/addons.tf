@@ -3,6 +3,9 @@ resource "aws_eks_addon" "vpc_cni" {
   addon_name               = "vpc-cni"
   addon_version            = "v1.22.4-eksbuild.3"
   service_account_role_arn = aws_iam_role.vpc_cni.arn
+  configuration_values = jsonencode({
+    enableNetworkPolicy = "true"
+  })
 
   depends_on = [
     aws_iam_role_policy_attachment.vpc_cni

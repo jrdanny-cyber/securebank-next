@@ -22,8 +22,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/actuator/health")
+                        .requestMatchers(
+				HttpMethod.GET, "/livez", "/readyz", "/actuator/health")
                             .permitAll()
+			.requestMatchers(request ->
+                                request.getLocalPort() == 9001
+                                && "GET".equals(request.getMethod())
+                                && "/actuator/prometheus".equals(
+                                        request.getServletPath()))
+			    .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/accounts")
                             .hasAuthority("SCOPE_accounts:read")
 		        .requestMatchers(HttpMethod.POST, "/api/v1/transfers")

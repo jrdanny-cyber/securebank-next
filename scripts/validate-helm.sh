@@ -11,6 +11,8 @@ for enabled in false true; do
     --set "api.autoscaling.enabled=$enabled" \
     --set "ingress.enabled=$enabled" \
     --set "migration.enabled=$enabled" \
+    --set "api.metrics.enabled=$enabled" \
+    --set "api.networkPolicy.enabled=$enabled" \
     --strict
 
   helm template securebank "$CHART" \
@@ -19,5 +21,7 @@ for enabled in false true; do
     --set "api.autoscaling.enabled=$enabled" \
     --set "ingress.enabled=$enabled" \
     --set "migration.enabled=$enabled" \
+    --set "api.networkPolicy.enabled=$enabled" \
+    --set "api.metrics.enabled=$enabled" \
     > /dev/null
 done

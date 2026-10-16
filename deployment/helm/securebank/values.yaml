@@ -37,6 +37,11 @@ api:
     minReplicas: 2
     maxReplicas: 4
     targetCPUUtilizationPercentage: 70
+  metrics:
+    enabled: false
+    interval: 30s
+  networkPolicy:
+    enabled: false
 
 auth:
   keycloakUrl: ""
