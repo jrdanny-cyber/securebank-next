@@ -45,6 +45,8 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            - name: management
+              containerPort: 9001
           env:
             - name: BANKING_DB_URL
               value: {{ required "Set api.database.url" .Values.api.database.url | quote }}
@@ -72,17 +74,18 @@ spec:
             {{- toYaml .Values.api.resources | nindent 12 }}
           startupProbe:
             httpGet:
-              path: /actuator/health
+              path: /livez
               port: http
             periodSeconds: 5
             failureThreshold: 60
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /readyz
               port: http
             periodSeconds: 10
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /livez
               port: http
             periodSeconds: 10
             failureThreshold: 3
