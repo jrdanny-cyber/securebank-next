@@ -1,0 +1,165 @@
+apiVersion: v1
+data:
+  banking-api.json: "{\r\n  \"id\": null,\r\n  \"uid\": \"securebank-api\",\r\n  \"title\":
+    \"SecureBank / Banking API\",\r\n  \"tags\": [\r\n    \"securebank\",\r\n    \"banking-api\"\r\n
+    \ ],\r\n  \"timezone\": \"browser\",\r\n  \"schemaVersion\": 39,\r\n  \"version\":
+    1,\r\n  \"editable\": false,\r\n  \"refresh\": \"30s\",\r\n  \"time\": {\r\n    \"from\":
+    \"now-1h\",\r\n    \"to\": \"now\"\r\n  },\r\n  \"templating\": {\r\n    \"list\":
+    [\r\n      {\r\n        \"name\": \"DS_PROMETHEUS\",\r\n        \"label\": \"Prometheus\",\r\n
+    \       \"type\": \"datasource\",\r\n        \"query\": \"prometheus\",\r\n        \"refresh\":
+    1,\r\n        \"multi\": false,\r\n        \"includeAll\": false,\r\n        \"options\":
+    []\r\n      }\r\n    ]\r\n  },\r\n  \"panels\": [\r\n    {\r\n      \"id\": 1,\r\n
+    \     \"title\": \"Metrics scrape health by pod\",\r\n      \"description\": \"1
+    means the scrape succeeded; 0 means it failed. This does not directly measure
+    customer-facing availability.\",\r\n      \"type\": \"timeseries\",\r\n      \"datasource\":
+    {\r\n        \"type\": \"prometheus\",\r\n        \"uid\": \"${DS_PROMETHEUS}\"\r\n
+    \     },\r\n      \"gridPos\": {\r\n        \"x\": 0,\r\n        \"y\": 0,\r\n
+    \       \"w\": 12,\r\n        \"h\": 8\r\n      },\r\n      \"fieldConfig\": {\r\n
+    \       \"defaults\": {\r\n          \"unit\": \"short\",\r\n          \"min\":
+    0,\r\n          \"color\": {\r\n            \"mode\": \"palette-classic\"\r\n
+    \         },\r\n          \"custom\": {\r\n            \"drawStyle\": \"line\",\r\n
+    \           \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n            \"spanNulls\":
+    false\r\n          }\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n
+    \         \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n
+    \         \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\": [\r\n
+    \       {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n            \"type\":
+    \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n          },\r\n
+    \         \"expr\": \"up{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\"}\",\r\n
+    \         \"legendFormat\": \"{{pod}}\",\r\n          \"range\": true,\r\n          \"instant\":
+    false\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\": 2,\r\n      \"title\":
+    \"API requests per second\",\r\n      \"description\": \"Five-minute request rate,
+    excluding probes and management endpoints.\",\r\n      \"type\": \"timeseries\",\r\n
+    \     \"datasource\": {\r\n        \"type\": \"prometheus\",\r\n        \"uid\":
+    \"${DS_PROMETHEUS}\"\r\n      },\r\n      \"gridPos\": {\r\n        \"x\": 12,\r\n
+    \       \"y\": 0,\r\n        \"w\": 12,\r\n        \"h\": 8\r\n      },\r\n      \"fieldConfig\":
+    {\r\n        \"defaults\": {\r\n          \"unit\": \"reqps\",\r\n          \"min\":
+    0,\r\n          \"color\": {\r\n            \"mode\": \"palette-classic\"\r\n
+    \         },\r\n          \"custom\": {\r\n            \"drawStyle\": \"line\",\r\n
+    \           \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n            \"spanNulls\":
+    false\r\n          }\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n
+    \         \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n
+    \         \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\": [\r\n
+    \       {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n            \"type\":
+    \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n          },\r\n
+    \         \"expr\": \"sum by (method, uri) (rate(http_server_requests_seconds_count{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\",uri=~\\\"/api/.*\\\"}[5m]))\",\r\n
+    \         \"legendFormat\": \"{{method}} {{uri}}\",\r\n          \"range\": true,\r\n
+    \         \"instant\": false\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\":
+    3,\r\n      \"title\": \"API server error ratio\",\r\n      \"description\": \"5xx
+    responses divided by API requests. Shows zero for idle periods when API counters
+    exist.\",\r\n      \"type\": \"timeseries\",\r\n      \"datasource\": {\r\n        \"type\":
+    \"prometheus\",\r\n        \"uid\": \"${DS_PROMETHEUS}\"\r\n      },\r\n      \"gridPos\":
+    {\r\n        \"x\": 0,\r\n        \"y\": 8,\r\n        \"w\": 12,\r\n        \"h\":
+    8\r\n      },\r\n      \"fieldConfig\": {\r\n        \"defaults\": {\r\n          \"unit\":
+    \"percentunit\",\r\n          \"min\": 0,\r\n          \"color\": {\r\n            \"mode\":
+    \"palette-classic\"\r\n          },\r\n          \"custom\": {\r\n            \"drawStyle\":
+    \"line\",\r\n            \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n
+    \           \"spanNulls\": false\r\n          }\r\n        },\r\n        \"overrides\":
+    []\r\n      },\r\n      \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\":
+    \"list\",\r\n          \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\":
+    {\r\n          \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\":
+    [\r\n        {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n
+    \           \"type\": \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n
+    \         },\r\n          \"expr\": \"((sum(rate(http_server_requests_seconds_count{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\",uri=~\\\"/api/.*\\\",status=~\\\"5..\\\"}[5m])))
+    or (0 * (sum(rate(http_server_requests_seconds_count{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\",uri=~\\\"/api/.*\\\"}[5m])))))
+    / clamp_min((sum(rate(http_server_requests_seconds_count{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\",uri=~\\\"/api/.*\\\"}[5m]))),
+    1e-9)\",\r\n          \"legendFormat\": \"5xx ratio\",\r\n          \"range\":
+    true,\r\n          \"instant\": false\r\n        }\r\n      ]\r\n    },\r\n    {\r\n
+    \     \"id\": 4,\r\n      \"title\": \"API latency by route \\u2014 p95\",\r\n
+    \     \"description\": \"Estimated p95 over five minutes. Sparse traffic makes
+    this noisy; idle routes may have gaps.\",\r\n      \"type\": \"timeseries\",\r\n
+    \     \"datasource\": {\r\n        \"type\": \"prometheus\",\r\n        \"uid\":
+    \"${DS_PROMETHEUS}\"\r\n      },\r\n      \"gridPos\": {\r\n        \"x\": 12,\r\n
+    \       \"y\": 8,\r\n        \"w\": 12,\r\n        \"h\": 8\r\n      },\r\n      \"fieldConfig\":
+    {\r\n        \"defaults\": {\r\n          \"unit\": \"s\",\r\n          \"min\":
+    0,\r\n          \"color\": {\r\n            \"mode\": \"palette-classic\"\r\n
+    \         },\r\n          \"custom\": {\r\n            \"drawStyle\": \"line\",\r\n
+    \           \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n            \"spanNulls\":
+    false\r\n          }\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n
+    \         \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n
+    \         \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\": [\r\n
+    \       {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n            \"type\":
+    \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n          },\r\n
+    \         \"expr\": \"histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\",uri=~\\\"/api/.*\\\"}[5m])))\",\r\n
+    \         \"legendFormat\": \"{{method}} {{uri}}\",\r\n          \"range\": true,\r\n
+    \         \"instant\": false\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\":
+    5,\r\n      \"title\": \"JVM heap used by pod\",\r\n      \"description\": \"\",\r\n
+    \     \"type\": \"timeseries\",\r\n      \"datasource\": {\r\n        \"type\":
+    \"prometheus\",\r\n        \"uid\": \"${DS_PROMETHEUS}\"\r\n      },\r\n      \"gridPos\":
+    {\r\n        \"x\": 0,\r\n        \"y\": 16,\r\n        \"w\": 12,\r\n        \"h\":
+    8\r\n      },\r\n      \"fieldConfig\": {\r\n        \"defaults\": {\r\n          \"unit\":
+    \"bytes\",\r\n          \"min\": 0,\r\n          \"color\": {\r\n            \"mode\":
+    \"palette-classic\"\r\n          },\r\n          \"custom\": {\r\n            \"drawStyle\":
+    \"line\",\r\n            \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n
+    \           \"spanNulls\": false\r\n          }\r\n        },\r\n        \"overrides\":
+    []\r\n      },\r\n      \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\":
+    \"list\",\r\n          \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\":
+    {\r\n          \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\":
+    [\r\n        {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n
+    \           \"type\": \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n
+    \         },\r\n          \"expr\": \"sum by (pod) (jvm_memory_used_bytes{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\",area=\\\"heap\\\"})\",\r\n
+    \         \"legendFormat\": \"{{pod}}\",\r\n          \"range\": true,\r\n          \"instant\":
+    false\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\": 6,\r\n      \"title\":
+    \"Database connection pool utilization\",\r\n      \"description\": \"Active connections
+    divided by the configured maximum for each pool.\",\r\n      \"type\": \"timeseries\",\r\n
+    \     \"datasource\": {\r\n        \"type\": \"prometheus\",\r\n        \"uid\":
+    \"${DS_PROMETHEUS}\"\r\n      },\r\n      \"gridPos\": {\r\n        \"x\": 12,\r\n
+    \       \"y\": 16,\r\n        \"w\": 12,\r\n        \"h\": 8\r\n      },\r\n      \"fieldConfig\":
+    {\r\n        \"defaults\": {\r\n          \"unit\": \"percentunit\",\r\n          \"min\":
+    0,\r\n          \"color\": {\r\n            \"mode\": \"palette-classic\"\r\n
+    \         },\r\n          \"custom\": {\r\n            \"drawStyle\": \"line\",\r\n
+    \           \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n            \"spanNulls\":
+    false\r\n          }\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n
+    \         \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n
+    \         \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\": [\r\n
+    \       {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n            \"type\":
+    \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n          },\r\n
+    \         \"expr\": \"hikaricp_connections_active{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\"}
+    / hikaricp_connections_max{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\"}\",\r\n
+    \         \"legendFormat\": \"{{pod}} / {{pool}}\",\r\n          \"range\": true,\r\n
+    \         \"instant\": false\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\":
+    7,\r\n      \"title\": \"Threads waiting for a database connection\",\r\n      \"description\":
+    \"\",\r\n      \"type\": \"timeseries\",\r\n      \"datasource\": {\r\n        \"type\":
+    \"prometheus\",\r\n        \"uid\": \"${DS_PROMETHEUS}\"\r\n      },\r\n      \"gridPos\":
+    {\r\n        \"x\": 0,\r\n        \"y\": 24,\r\n        \"w\": 12,\r\n        \"h\":
+    8\r\n      },\r\n      \"fieldConfig\": {\r\n        \"defaults\": {\r\n          \"unit\":
+    \"short\",\r\n          \"min\": 0,\r\n          \"color\": {\r\n            \"mode\":
+    \"palette-classic\"\r\n          },\r\n          \"custom\": {\r\n            \"drawStyle\":
+    \"line\",\r\n            \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n
+    \           \"spanNulls\": false\r\n          }\r\n        },\r\n        \"overrides\":
+    []\r\n      },\r\n      \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\":
+    \"list\",\r\n          \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\":
+    {\r\n          \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\":
+    [\r\n        {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n
+    \           \"type\": \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n
+    \         },\r\n          \"expr\": \"hikaricp_connections_pending{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\"}\",\r\n
+    \         \"legendFormat\": \"{{pod}} / {{pool}}\",\r\n          \"range\": true,\r\n
+    \         \"instant\": false\r\n        }\r\n      ]\r\n    },\r\n    {\r\n      \"id\":
+    8,\r\n      \"title\": \"Database connection timeouts \\u2014 last 5 minutes\",\r\n
+    \     \"description\": \"Prometheus extrapolates counter increases, so values
+    can be fractional.\",\r\n      \"type\": \"timeseries\",\r\n      \"datasource\":
+    {\r\n        \"type\": \"prometheus\",\r\n        \"uid\": \"${DS_PROMETHEUS}\"\r\n
+    \     },\r\n      \"gridPos\": {\r\n        \"x\": 12,\r\n        \"y\": 24,\r\n
+    \       \"w\": 12,\r\n        \"h\": 8\r\n      },\r\n      \"fieldConfig\": {\r\n
+    \       \"defaults\": {\r\n          \"unit\": \"short\",\r\n          \"min\":
+    0,\r\n          \"color\": {\r\n            \"mode\": \"palette-classic\"\r\n
+    \         },\r\n          \"custom\": {\r\n            \"drawStyle\": \"line\",\r\n
+    \           \"lineWidth\": 2,\r\n            \"fillOpacity\": 10,\r\n            \"spanNulls\":
+    false\r\n          }\r\n        },\r\n        \"overrides\": []\r\n      },\r\n
+    \     \"options\": {\r\n        \"legend\": {\r\n          \"displayMode\": \"list\",\r\n
+    \         \"placement\": \"bottom\"\r\n        },\r\n        \"tooltip\": {\r\n
+    \         \"mode\": \"multi\"\r\n        }\r\n      },\r\n      \"targets\": [\r\n
+    \       {\r\n          \"refId\": \"A\",\r\n          \"datasource\": {\r\n            \"type\":
+    \"prometheus\",\r\n            \"uid\": \"${DS_PROMETHEUS}\"\r\n          },\r\n
+    \         \"expr\": \"increase(hikaricp_connections_timeout_total{namespace=\\\"securebank\\\",service=\\\"securebank-api-metrics\\\"}[5m])\",\r\n
+    \         \"legendFormat\": \"{{pod}} / {{pool}}\",\r\n          \"range\": true,\r\n
+    \         \"instant\": false\r\n        }\r\n      ]\r\n    }\r\n  ]\r\n}\r\n"
+kind: ConfigMap
+metadata:
+  labels:
+    grafana_dashboard: "1"
+  name: securebank-api-dashboard
+  namespace: monitoring
