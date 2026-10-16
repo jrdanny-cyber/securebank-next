@@ -1,0 +1,104 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: securebank-api
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: securebank-api
+      rules:
+        - alert: BankingApiMetricsUnavailable
+          expr: |
+            sum(up{namespace="securebank",service="securebank-api-metrics"}) == 0
+            or
+            absent(up{namespace="securebank",service="securebank-api-metrics"})
+          for: 2m
+          labels:
+            severity: critical
+            application: banking-api
+          annotations:
+            summary: "No banking API metrics targets are reachable"
+            description: "Check API pods, the metrics Service, ServiceMonitor, and NetworkPolicy. This indicates loss of monitoring visibility; verify application availability separately."
+
+        - alert: BankingApiMetricsTargetDown
+          expr: |
+            up{namespace="securebank",service="securebank-api-metrics"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            application: banking-api
+          annotations:
+            summary: "A banking API metrics target is unreachable"
+            description: "Prometheus has been unable to scrape pod {{ $labels.pod }} for five minutes."
+
+        - alert: BankingApiHighServerErrorRate
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{
+                namespace="securebank",
+                service="securebank-api-metrics",
+                uri=~"/api/.*",
+                status=~"5.."
+              }[5m]))
+              /
+              sum(rate(http_server_requests_seconds_count{
+                namespace="securebank",
+                service="securebank-api-metrics",
+                uri=~"/api/.*"
+              }[5m]))
+            ) > 0.05
+            and
+            sum(increase(http_server_requests_seconds_count{
+              namespace="securebank",
+              service="securebank-api-metrics",
+              uri=~"/api/.*"
+            }[5m])) >= 20
+          for: 5m
+          labels:
+            severity: warning
+            application: banking-api
+          annotations:
+            summary: "Banking API server errors exceed 5%"
+            description: "The five-minute API error ratio has exceeded 5% for five minutes, with at least 20 requests per evaluation window. Check application logs and database connectivity."
+
+        - alert: BankingApiHighLatency
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(http_server_requests_seconds_bucket{
+                  namespace="securebank",
+                  service="securebank-api-metrics",
+                  uri=~"/api/.*"
+                }[5m])
+              )
+            ) > 1
+            and
+            sum(increase(http_server_requests_seconds_count{
+              namespace="securebank",
+              service="securebank-api-metrics",
+              uri=~"/api/.*"
+            }[5m])) >= 20
+          for: 10m
+          labels:
+            severity: warning
+            application: banking-api
+          annotations:
+            summary: "Banking API p95 latency exceeds one second"
+            description: "The estimated five-minute p95 API latency has exceeded one second for ten minutes, with at least 20 requests per evaluation window."
+
+        - alert: BankingApiDatabasePoolWaiting
+          expr: |
+            hikaricp_connections_pending{
+              namespace="securebank",
+              service="securebank-api-metrics"
+            } > 0
+          for: 5m
+          labels:
+            severity: warning
+            application: banking-api
+          annotations:
+            summary: "Banking API requests are waiting for database connections"
+            description: "Pod {{ $labels.pod }}, pool {{ $labels.pool }}, has reported waiting threads continuously for five minutes. Check slow queries, open transactions, and pool utilization."
