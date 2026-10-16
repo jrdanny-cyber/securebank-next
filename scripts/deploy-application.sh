@@ -70,8 +70,13 @@ helm template "${COMMON[@]}" \
   --show-only templates/migration-job.yaml \
   > "$WORK_DIR/migration.yaml"
 
-kubectl apply --dry-run=server -n "$NAMESPACE" \
-  -f "$WORK_DIR/application.yaml"
+helm upgrade --install "${COMMON[@]}" \
+  --set migration.enabled=false \
+  --dry-run=server \
+  --hide-secret \
+  > /dev/null
+
+echo "Helm application preflight passed."
 
 kubectl create --dry-run=server -n "$NAMESPACE" \
   -f "$WORK_DIR/migration.yaml"
