@@ -14,7 +14,9 @@ FROM nginxinc/nginx-unprivileged:stable-alpine@sha256:ed04ec1ff34502c339ee5c3ae3
 USER 0
 RUN apk add --no-cache \
     'pcre2=10.49-r0' \
-    'tiff=4.7.2-r0'
+    'tiff=4.7.2-r0' \
+    'libexpat=2.9.0-r0' \
+    'libx11=1.8.14-r0'
 USER 101:101
 
 COPY nginx.conf /etc/nginx/nginx.conf
