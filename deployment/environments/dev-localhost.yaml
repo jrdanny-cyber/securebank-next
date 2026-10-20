@@ -1,6 +1,6 @@
 web:
   image:
-    digest: sha256:53a1bee8d68ade09a474541d0b9445eaace227f89295f26269c6818326082d88
+    digest: sha256:1c50a31680607fcb6acbaa2da62c91f250e9027b69b74bed8cbb570d7236171d
 
 api:
   image:
