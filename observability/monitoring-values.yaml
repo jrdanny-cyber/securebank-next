@@ -50,15 +50,26 @@ alertmanager:
       group_interval: 5m
       repeat_interval: 4h
       routes:
+        - receiver: watchdog
+          matchers:
+            - 'alertname="Watchdog"'
+          group_by: ["alertname"]
+          group_wait: 0s
+          group_interval: 1m
+          repeat_interval: 1m
         - receiver: "null"
           matchers:
-            - 'alertname=~"Watchdog|InfoInhibitor"'
+            - 'alertname="InfoInhibitor"'
         - receiver: slack
           matchers:
             - 'severity=~"warning|critical"'
 
     receivers:
       - name: "null"
+      - name: watchdog
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-watchdog/ping-url
+            send_resolved: false
       - name: slack
         slack_configs:
           - api_url_file: /etc/alertmanager/secrets/alertmanager-slack/webhook-url
@@ -77,6 +88,7 @@ alertmanager:
     replicas: 1
     secrets:
       - alertmanager-slack
+      - alertmanager-watchdog
     resources:
       requests:
         cpu: 25m
