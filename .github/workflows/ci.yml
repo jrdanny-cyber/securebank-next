@@ -151,6 +151,10 @@ jobs:
     name: Secret checks
     uses: ./.github/workflows/secret-scanning.yml
 
+  helm-validation:
+    name: Helm checks
+    uses: ./.github/workflows/helm-validation.yml
+
   publish:
     name: Publish ECR (${{ matrix.service }})
     needs:
@@ -159,6 +163,7 @@ jobs:
       - frontend-dependency-security
       - container-security
       - secret-scanning
+      - helm-validation
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
