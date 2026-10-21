@@ -1,0 +1,233 @@
+name: Prepare development release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful Application CI run ID for current main
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-development-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare digest update PR
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CI_RUN_ID: ${{ inputs.ci_run_id }}
+      HELM_VERSION: v4.1.4
+
+    steps:
+      - name: Check out workflow commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify source CI run
+        id: source
+        run: |
+          set -euo pipefail
+          [[ "$CI_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
+            echo "::error::CI run ID must be a positive integer"
+            exit 1
+          }
+
+          gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID" \
+            > "$RUNNER_TEMP/source-run.json"
+
+          python - <<'PY'
+          import json
+          import os
+
+          with open(os.environ["RUNNER_TEMP"] + "/source-run.json") as file:
+              run = json.load(file)
+
+          expected = {
+              "event": "push",
+              "head_branch": "main",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "status": "completed",
+              "conclusion": "success",
+              "path": ".github/workflows/ci.yml",
+          }
+
+          for key, value in expected.items():
+              if run.get(key) != value:
+                  raise SystemExit(
+                      f"Source run rejected: {key}={run.get(key)!r}; "
+                      f"expected {value!r}"
+                  )
+
+          if run["repository"]["full_name"] != os.environ["GITHUB_REPOSITORY"]:
+              raise SystemExit("Unexpected source repository")
+
+          attempt = run["run_attempt"]
+          if not isinstance(attempt, int) or attempt < 1:
+              raise SystemExit("Invalid run attempt")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"attempt={attempt}\n")
+
+          print(f"Verified source commit: {run['head_sha']}")
+          print(f"Verified source attempt: {attempt}")
+          PY
+
+      - name: Download published image references
+        env:
+          SOURCE_ATTEMPT: ${{ steps.source.outputs.attempt }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/image-references"
+
+          for service in banking-api web; do
+            artifact="published-image-$service-$SOURCE_ATTEMPT"
+
+            gh run download "$CI_RUN_ID" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name "$artifact" \
+              --dir "$RUNNER_TEMP/image-references/$service"
+
+            test -f "$RUNNER_TEMP/image-references/$service/$service.txt"
+          done
+
+          mkdir -p "$RUNNER_TEMP/release-references"
+
+          cp "$RUNNER_TEMP/image-references/banking-api/banking-api.txt" \
+            "$RUNNER_TEMP/release-references/banking-api.txt"
+
+          cp "$RUNNER_TEMP/image-references/web/web.txt" \
+            "$RUNNER_TEMP/release-references/web.txt"
+
+      - name: Update development image digests
+        run: |
+          python scripts/update-dev-image-digests.py \
+            --references-dir "$RUNNER_TEMP/release-references"
+
+      - name: Install pinned Helm
+        run: |
+          set -euo pipefail
+          install_dir="$RUNNER_TEMP/securebank-helm"
+          mkdir -p "$install_dir"
+          cd "$install_dir"
+
+          archive="helm-${HELM_VERSION}-linux-amd64.tar.gz"
+
+          for file in "$archive" "$archive.sha256"; do
+            curl --fail --location --retry 3 \
+              --connect-timeout 15 --max-time 120 \
+              "https://get.helm.sh/$file" \
+              --output "$file"
+          done
+
+          checksum="$(tr -d '[:space:]' < "$archive.sha256")"
+          [[ "$checksum" =~ ^[0-9a-fA-F]{64}$ ]]
+          printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check
+
+          tar -xzf "$archive" linux-amd64/helm
+          echo "$install_dir/linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Validate updated configuration
+        run: |
+          set -euo pipefail
+          version="$(helm version --short)"
+          [[ "$version" == "$HELM_VERSION"+* ]]
+
+          bash scripts/validate-helm.sh
+          git diff --check
+
+      - name: Create release pull request
+        env:
+          SOURCE_ATTEMPT: ${{ steps.source.outputs.attempt }}
+        run: |
+          set -euo pipefail
+          values="deployment/environments/dev-localhost.yaml"
+
+          if git diff --quiet -- "$values"; then
+            echo "Development already uses these image digests." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          changed="$(git diff --name-only)"
+          [[ "$changed" == "$values" ]] || {
+            echo "::error::Unexpected files changed"
+            exit 1
+          }
+
+          current_main="$(gh api \
+            "repos/$GITHUB_REPOSITORY/git/ref/heads/main" \
+            --jq '.object.sha')"
+
+          [[ "$current_main" == "$GITHUB_SHA" ]] || {
+            echo "::error::Main changed during preparation. Run again using its successful CI run."
+            exit 1
+          }
+
+          branch="release/dev-$CI_RUN_ID-$SOURCE_ATTEMPT"
+
+          existing="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$branch" --base main --state all \
+            --json url --jq '.[0].url // empty')"
+
+          if [[ -n "$existing" ]]; then
+            printf 'Release PR already exists: %s\n' "$existing" \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git switch -c "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- "$values"
+          git commit -m "Update development images from CI run $CI_RUN_ID"
+
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/$branch"
+
+          body="$RUNNER_TEMP/release-pr.md"
+          {
+            printf 'Update development API and web image digests.\n\n'
+            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Source CI: https://github.com/%s/actions/runs/%s/attempts/%s\n\n' \
+              "$GITHUB_REPOSITORY" "$CI_RUN_ID" "$SOURCE_ATTEMPT"
+            printf 'Published images:\n\n'
+            printf -- '- API: `%s`\n' \
+              "$(cat "$RUNNER_TEMP/release-references/banking-api.txt")"
+            printf -- '- Web: `%s`\n\n' \
+              "$(cat "$RUNNER_TEMP/release-references/web.txt")"
+            printf 'Validation: Helm lint/render, development values, migration rendering, and whitespace checks passed.\n\n'
+            printf 'This PR prepares configuration only. No cluster resources or database migrations were changed.\n'
+          } > "$body"
+
+          pr_url="$(gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$branch" \
+            --title "Update development images from CI run $CI_RUN_ID" \
+            --body-file "$body")"
+
+          printf 'Release PR: %s\n' "$pr_url" >> "$GITHUB_STEP_SUMMARY"

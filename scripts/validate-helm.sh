@@ -25,3 +25,27 @@ for enabled in false true; do
     --set "api.metrics.enabled=$enabled" \
     > /dev/null
 done
+
+DEV_VALUES="$REPO_ROOT/deployment/environments/dev-localhost.yaml"
+
+echo "==> Validating development deployment values"
+
+  helm lint "$CHART" \
+    --values "$DEV_VALUES" \
+    --strict
+
+  helm template securebank "$CHART" \
+    --namespace securebank \
+    --values "$DEV_VALUES" \
+    > /dev/null
+
+echo "==> Validating development migration rendering"
+
+  helm template securebank "$CHART" \
+    --namespace securebank \
+    --values "$DEV_VALUES" \
+    --set migration.enabled=true \
+    --set-string migration.jobName=securebank-migration-validation \
+    --set-string migration.existingSecret=securebank-db-migrator \
+    --show-only templates/migration-job.yaml \
+    > /dev/null
