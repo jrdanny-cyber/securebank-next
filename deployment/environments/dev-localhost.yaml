@@ -1,10 +1,10 @@
 web:
   image:
-    digest: sha256:b89b60c7c2705e90f2de08a927e01028fbed24eab56da8592b3adc2a0c4d37b3
+    digest: sha256:889450d2a8c4ab7fc732fa2f15d8bb39a97eaf4ce8570801361dc373d85df336
 
 api:
   image:
-    digest: sha256:6281102142a2d295e9141056b350189f6882130c05e90a0a39f807e9fbc255dc
+    digest: sha256:92af2fa9607792f71bad0cb8d14df5cce0c8b35ae98a1a02501d462a7773b07c
   database:
     url: "jdbc:postgresql://securebank-next-dev-postgres.ca5q6w8w0izb.us-east-1.rds.amazonaws.com:5432/securebank?sslmode=verify-full&sslrootcert=/etc/securebank/database-ca/rds-ca-bundle.pem"
     existingSecret: securebank-db-app
