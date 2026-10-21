@@ -197,16 +197,38 @@ jobs:
             exit 0
           fi
 
-          git switch -c "$branch"
-          git config user.name "github-actions[bot]"
-          git config user.email \
+          gh auth setup-git
+
+          remote_branch="$(git ls-remote --heads origin "refs/heads/$branch")"
+
+          if [[ -n "$remote_branch" ]]; then
+            git fetch --no-tags origin "refs/heads/$branch"
+            remote_commit="$(git rev-parse FETCH_HEAD)"
+
+          # Compare the entire expected tree, including the updated values.
+            git add -- "$values"
+            expected_tree="$(git write-tree)"
+            remote_tree="$(git rev-parse "$remote_commit^{tree}")"
+            remote_parent="$(git show -s --format=%P "$remote_commit")"
+
+            if [[ "$remote_tree" != "$expected_tree" ||
+                "$remote_parent" != "$GITHUB_SHA" ]]; then
+              echo "::error::Existing release branch differs from the expected update. Review it manually."
+              exit 1
+            fi
+
+            echo "Verified existing release branch; continuing with PR creation."
+          else
+            git switch -c "$branch"
+            git config user.name "github-actions[bot]"
+            git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add -- "$values"
-          git commit -m "Update development images from CI run $CI_RUN_ID"
+            git add -- "$values"
+            git commit -m "Update development images from CI run $CI_RUN_ID"
 
-          gh auth setup-git
-          git push origin "HEAD:refs/heads/$branch"
+            git push origin "HEAD:refs/heads/$branch"
+          fi
 
           body="$RUNNER_TEMP/release-pr.md"
           {
