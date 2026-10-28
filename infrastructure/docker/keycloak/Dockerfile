@@ -19,11 +19,21 @@ RUN dnf --installroot=/rootfs \
       --releasever=9 \
       --setopt=install_weak_deps=False \
       --refresh \
+      install -y \
+      p11-kit-0.26.4-1.el9_8.x86_64 \
+      && dnf --installroot=/rootfs \
+      --releasever=9 \
+      --setopt=install_weak_deps=False \
       upgrade -y \
       pcre2-10.40-7.el9_8.x86_64 \
       pcre2-syntax-10.40-7.el9_8.noarch \
+      ca-certificates-2026.2.92_v9.0.319-90.3.el9_8.noarch \
+    && chroot /rootfs /usr/bin/update-ca-trust extract \
+    && test -s /rootfs/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    && test -s /rootfs/etc/pki/ca-trust/extracted/java/cacerts \
     && dnf --installroot=/rootfs clean all \
-    && rpm --root /rootfs -q pcre2 pcre2-syntax
+    && rpm --root /rootfs -q \
+      pcre2 pcre2-syntax ca-certificates p11-kit p11-kit-trust
 
 FROM scratch
 
