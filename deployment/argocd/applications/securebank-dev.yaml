@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: securebank-dev
+  namespace: argocd
+spec:
+  project: securebank-dev
+  source:
+    repoURL: https://github.com/jrdanny-cyber/securebank-next.git
+    targetRevision: main
+    path: deployment/helm/securebank
+    helm:
+      releaseName: securebank
+      valueFiles:
+        - ../../environments/dev-localhost.yaml
+      parameters:
+        - name: migration.enabled
+          value: "true"
+        - name: migration.argoHook
+          value: "true"
+        - name: migration.existingSecret
+          value: securebank-db-migrator
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: securebank
+  syncPolicy:
+    syncOptions:
+      - FailOnSharedResource=true

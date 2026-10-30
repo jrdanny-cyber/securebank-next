@@ -1,0 +1,37 @@
+diff --git a/pom.xml b/pom.xml
+index 41890df..9426de0 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -332,6 +332,17 @@
+     <dependencyManagement>
+ 
+         <dependencies>
++            <!-- Temporary security overrides: CVE-2026-102554. -->
++            <dependency>
++                <groupId>com.google.guava</groupId>
++                <artifactId>guava</artifactId>
++                <version>33.7.2-jre</version>
++            </dependency>
++            <dependency>
++                <groupId>com.google.guava</groupId>
++                <artifactId>failureaccess</artifactId>
++                <version>1.0.3</version>
++            </dependency>
+             <dependency>
+                 <groupId>org.infinispan</groupId>
+                 <artifactId>infinispan-bom</artifactId>
+diff --git a/quarkus/runtime/pom.xml b/quarkus/runtime/pom.xml
+index 9af569e..fc06c03 100644
+--- a/quarkus/runtime/pom.xml
++++ b/quarkus/runtime/pom.xml
+@@ -560,6 +560,10 @@
+                 </exclusion>
+             </exclusions>
+         </dependency>
++        <dependency>
++            <groupId>com.google.guava</groupId>
++            <artifactId>failureaccess</artifactId>
++        </dependency>
+         <dependency>
+             <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+             <artifactId>owasp-java-html-sanitizer</artifactId>

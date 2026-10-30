@@ -57,6 +57,7 @@ ingress:
 
 migration:
   enabled: false
+  argoHook: false
   existingSecret: ""
   passwordKey: BANKING_MIGRATOR_PASSWORD
   activeDeadlineSeconds: 300

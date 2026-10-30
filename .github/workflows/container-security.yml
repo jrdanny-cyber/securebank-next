@@ -10,7 +10,7 @@ jobs:
   container:
     name: Container security (${{ matrix.service }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: ${{ matrix.service == 'keycloak' && 90 || 35 }}
 
     strategy:
       fail-fast: false
@@ -42,6 +42,7 @@ jobs:
         run: |
           docker build \
             --pull \
+            --progress=plain \
             --platform linux/amd64 \
             --tag "$IMAGE_TAG" \
             "$BUILD_CONTEXT"
