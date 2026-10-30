@@ -4,7 +4,10 @@ FROM eclipse-temurin:21-jdk-jammy@sha256:6adefddd4a20bceef702cedb0b03952fcd7691f
 USER 0
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git unzip \
+    && apt-get install -y --no-install-recommends \
+    git \
+    unzip \
+    libicu70 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src/keycloak
