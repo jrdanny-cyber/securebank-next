@@ -20,6 +20,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends --only-upgrade \
         libssl3=3.0.2-0ubuntu1.30 \
         openssl=3.0.2-0ubuntu1.30 \
+	libbrotli1=1.0.9-2ubuntu0.1 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
