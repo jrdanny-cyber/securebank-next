@@ -39,7 +39,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: keycloak
-          image: 535079144516.dkr.ecr.us-east-1.amazonaws.com/securebank-next/keycloak@sha256:912f66fea94594f434e4fe9bdff89a92e0f272ba15c9adffbed37b24ec68de21
+          image: 535079144516.dkr.ecr.us-east-1.amazonaws.com/securebank-next/keycloak@sha256:c13b4efb6b356a916d6330a227eb0fd14cf1cfde25eb9fb91d89cc88f5b69658
           args:
             - start
             - --optimized
